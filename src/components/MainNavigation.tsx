@@ -30,10 +30,7 @@ const MainNavigation = () => {
             Home
           </Link>
           <Link to="/medications" className="text-gray-600 hover:text-medblue-500 font-medium">
-            Find Medications
-          </Link>
-          <Link to="/providers" className="text-gray-600 hover:text-medblue-500 font-medium">
-            Find Providers
+            Find Prescribers
           </Link>
           <Link to="/about" className="text-gray-600 hover:text-medblue-500 font-medium">
             About

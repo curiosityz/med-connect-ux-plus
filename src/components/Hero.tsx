@@ -10,18 +10,15 @@ const Hero = () => {
       <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
         <div className="space-y-6 max-w-xl">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-medblue-800 leading-tight animate-fade-in">
-            Connect with Medication Specialists
+            Find Prescribers for Your Medications
           </h1>
           <p className="text-lg text-gray-700 animate-fade-in" style={{animationDelay: "0.2s"}}>
-            Find prescribers specializing in the exact medications you need. 
+            Connect with healthcare providers who specialize in prescribing the exact medications you need. 
             Simplified appointments, expert care.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4 animate-fade-in" style={{animationDelay: "0.3s"}}>
             <Button asChild size="lg" className="bg-medblue-600 hover:bg-medblue-700 text-lg font-medium">
-              <Link to="/medications">Find Medications</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="border-medteal-500 text-medteal-600 hover:bg-medteal-50 text-lg font-medium">
-              <Link to="/providers">Browse Providers</Link>
+              <Link to="/medications">Find Medication Prescribers</Link>
             </Button>
           </div>
           
@@ -31,7 +28,7 @@ const Hero = () => {
             </div>
             <input 
               type="text"
-              placeholder="Search medications or conditions..."
+              placeholder="Search medications..."
               className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-medblue-500 focus:border-medblue-500"
             />
           </div>
@@ -43,13 +40,13 @@ const Hero = () => {
             <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-medblue-100 rounded-full z-0"></div>
             <div className="relative z-10 bg-white rounded-xl shadow-xl p-4 transform rotate-1 animate-fade-in" style={{animationDelay: "0.5s"}}>
               <div className="bg-medblue-50 p-6 rounded-lg">
-                <h3 className="font-bold text-xl mb-2 text-medblue-800">Personalized Provider Matching</h3>
-                <p className="text-gray-600 mb-4">Match with providers specialized in your specific medication needs</p>
+                <h3 className="font-bold text-xl mb-2 text-medblue-800">Medication-Specific Providers</h3>
+                <p className="text-gray-600 mb-4">Find prescribers who specialize in your exact medication needs</p>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-12 h-12 bg-medblue-200 rounded-full"></div>
                   <div>
                     <p className="font-medium text-medblue-800">Dr. Sarah Chen</p>
-                    <p className="text-sm text-gray-600">Psychiatrist - Medication Specialist</p>
+                    <p className="text-sm text-gray-600">Psychiatrist - Sertraline Specialist</p>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">

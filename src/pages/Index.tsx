@@ -29,7 +29,7 @@ const Index = () => {
             <div className="flex justify-between items-end mb-8">
               <div>
                 <h2 className="text-3xl font-bold mb-2 text-medblue-800">Popular Medications</h2>
-                <p className="text-gray-600">Find providers specialized in these common medications</p>
+                <p className="text-gray-600">Find prescribers specializing in these medications</p>
               </div>
               <Button asChild variant="outline" className="border-medblue-600 text-medblue-700">
                 <Link to="/medications">View All</Link>
@@ -49,12 +49,9 @@ const Index = () => {
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-end mb-8">
               <div>
-                <h2 className="text-3xl font-bold mb-2 text-medblue-800">Top Providers</h2>
-                <p className="text-gray-600">Highly rated medication specialists ready to help</p>
+                <h2 className="text-3xl font-bold mb-2 text-medblue-800">Top Medication Specialists</h2>
+                <p className="text-gray-600">Highly rated providers specializing in specific medications</p>
               </div>
-              <Button asChild variant="outline" className="border-medblue-600 text-medblue-700">
-                <Link to="/providers">View All</Link>
-              </Button>
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -68,16 +65,13 @@ const Index = () => {
         {/* CTA Section */}
         <section className="py-16 bg-medblue-700 text-white">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to find your medication specialist?</h2>
+            <h2 className="text-3xl font-bold mb-4">Ready to find prescribers for your medication?</h2>
             <p className="text-xl text-medblue-100 mb-8 max-w-2xl mx-auto">
               Get connected with providers who specialize in the exact medications you need.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-white text-medblue-700 hover:bg-gray-100">
-                <Link to="/medications">Find by Medication</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-medblue-600">
-                <Link to="/providers">Browse All Providers</Link>
+                <Link to="/medications">Search Medications</Link>
               </Button>
             </div>
           </div>

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import MainNavigation from "@/components/MainNavigation";
 import Footer from "@/components/Footer";
@@ -47,9 +46,9 @@ const MedicationsPage = () => {
         {/* Header Section */}
         <section className="bg-medblue-700 py-16 text-white">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold mb-4">Find Medications</h1>
+            <h1 className="text-4xl font-bold mb-4">Find Medication Prescribers</h1>
             <p className="text-xl text-medblue-100 max-w-2xl mx-auto">
-              Search for medications and find providers who specialize in prescribing them.
+              Search for medications to connect with providers who specialize in prescribing them.
             </p>
           </div>
         </section>
@@ -61,7 +60,7 @@ const MedicationsPage = () => {
               {/* Filters Sidebar */}
               <div className="md:col-span-1">
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                  <h2 className="text-lg font-bold text-medblue-800 mb-4">Filters</h2>
+                  <h2 className="text-lg font-bold text-medblue-800 mb-4">Filter Medications</h2>
                   
                   <div className="mb-6">
                     <div className="relative">
