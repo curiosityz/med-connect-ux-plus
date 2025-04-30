@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getProviders,
@@ -8,7 +7,13 @@ import {
   getProvidersByMedication,
   getMedicationsByProvider,
   searchProviders, 
-  searchMedications
+  searchMedications,
+  getArkansasProviders,
+  getArkansasProviderByNpi,
+  getNpiDetailByNpi,
+  getArkansasProviderWithDetails,
+  searchArkansasProviders,
+  getProvidersForMedication
 } from '@/services/dataService';
 
 export function useProviders() {
@@ -70,5 +75,52 @@ export function useSearchMedications(query: string, enabled: boolean = true) {
     queryKey: ['medications', 'search', query],
     queryFn: () => searchMedications(query),
     enabled: enabled && query.length >= 2
+  });
+}
+
+export function useArkansasProviders(limit = 50, offset = 0) {
+  return useQuery({
+    queryKey: ['arkansas_providers', limit, offset],
+    queryFn: () => getArkansasProviders(limit, offset)
+  });
+}
+
+export function useArkansasProvider(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['arkansas_provider', npi],
+    queryFn: () => npi ? getArkansasProviderByNpi(npi) : null,
+    enabled: !!npi
+  });
+}
+
+export function useNpiDetails(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['npi_details', npi],
+    queryFn: () => npi ? getNpiDetailByNpi(npi) : null,
+    enabled: !!npi
+  });
+}
+
+export function useArkansasProviderWithDetails(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['arkansas_provider_with_details', npi],
+    queryFn: () => npi ? getArkansasProviderWithDetails(npi) : { provider: null, details: null },
+    enabled: !!npi
+  });
+}
+
+export function useSearchArkansasProviders(query: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['arkansas_providers', 'search', query],
+    queryFn: () => searchArkansasProviders(query),
+    enabled: enabled && query.length >= 2
+  });
+}
+
+export function useProvidersForMedication(brandName: string, genericName: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['arkansas_providers', 'medication', brandName, genericName],
+    queryFn: () => getProvidersForMedication(brandName, genericName),
+    enabled: enabled && (brandName.length > 0 || genericName.length > 0)
   });
 }

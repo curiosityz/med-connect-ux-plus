@@ -1,5 +1,4 @@
-
-import { supabase, Provider, Medication, ProviderMedication } from '@/lib/supabase';
+import { supabase, Provider, Medication, ProviderMedication, ArkansasProvider, NpiProviderDetail } from '@/lib/supabase';
 
 export async function getProviders(): Promise<Provider[]> {
   const { data, error } = await supabase
@@ -145,6 +144,91 @@ export async function searchMedications(query: string): Promise<Medication[]> {
     
   if (error) {
     console.error('Error searching medications:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// New functions for Arkansas data
+export async function getArkansasProviders(limit = 50, offset = 0): Promise<ArkansasProvider[]> {
+  const { data, error } = await supabase
+    .from('arkansas_providers')
+    .select('*')
+    .range(offset, offset + limit - 1)
+    .order('prscrbr_last_org_name');
+    
+  if (error) {
+    console.error('Error fetching Arkansas providers:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getArkansasProviderByNpi(npi: string): Promise<ArkansasProvider | null> {
+  const { data, error } = await supabase
+    .from('arkansas_providers')
+    .select('*')
+    .eq('prscrbr_npi', npi)
+    .single();
+    
+  if (error) {
+    console.error(`Error fetching Arkansas provider with NPI ${npi}:`, error);
+    return null;
+  }
+  
+  return data;
+}
+
+export async function getNpiDetailByNpi(npi: string): Promise<NpiProviderDetail | null> {
+  const { data, error } = await supabase
+    .from('npi_details')
+    .select('*')
+    .eq('npi', npi)
+    .single();
+    
+  if (error) {
+    console.error(`Error fetching NPI details with NPI ${npi}:`, error);
+    return null;
+  }
+  
+  return data;
+}
+
+export async function getArkansasProviderWithDetails(npi: string): Promise<{provider: ArkansasProvider | null, details: NpiProviderDetail | null}> {
+  const provider = await getArkansasProviderByNpi(npi);
+  const details = await getNpiDetailByNpi(npi);
+  
+  return { provider, details };
+}
+
+export async function searchArkansasProviders(query: string): Promise<ArkansasProvider[]> {
+  const { data, error } = await supabase
+    .from('arkansas_providers')
+    .select('*')
+    .or(`prscrbr_last_org_name.ilike.%${query}%, prscrbr_first_name.ilike.%${query}%, prscrbr_city.ilike.%${query}%, brnd_name.ilike.%${query}%, gnrc_name.ilike.%${query}%`)
+    .order('prscrbr_last_org_name')
+    .limit(50);
+    
+  if (error) {
+    console.error('Error searching Arkansas providers:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getProvidersForMedication(brandName: string, genericName: string): Promise<ArkansasProvider[]> {
+  const { data, error } = await supabase
+    .from('arkansas_providers')
+    .select('*')
+    .or(`brnd_name.ilike.%${brandName}%, gnrc_name.ilike.%${genericName}%`)
+    .order('tot_clms', { ascending: false })
+    .limit(50);
+    
+  if (error) {
+    console.error(`Error fetching providers for medication ${brandName}/${genericName}:`, error);
     return [];
   }
   
