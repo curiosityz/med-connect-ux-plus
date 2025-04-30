@@ -204,18 +204,25 @@ export async function getArkansasProviderWithDetails(npi: string): Promise<{prov
 }
 
 export async function searchArkansasProviders(query: string): Promise<ArkansasProvider[]> {
+  // Clean and prepare the search query
+  const cleanedQuery = query.trim().toLowerCase();
+  
+  // Log the search query for debugging
+  console.log(`Searching Arkansas providers for: "${cleanedQuery}"`);
+  
   const { data, error } = await supabase
     .from('arkansas_providers')
     .select('*')
-    .or(`prscrbr_last_org_name.ilike.%${query}%, prscrbr_first_name.ilike.%${query}%, prscrbr_city.ilike.%${query}%, brnd_name.ilike.%${query}%, gnrc_name.ilike.%${query}%`)
-    .order('prscrbr_last_org_name')
-    .limit(50);
+    .or(`prscrbr_last_org_name.ilike.%${cleanedQuery}%, prscrbr_first_name.ilike.%${cleanedQuery}%, prscrbr_city.ilike.%${cleanedQuery}%, brnd_name.ilike.%${cleanedQuery}%, gnrc_name.ilike.%${cleanedQuery}%`)
+    .order('tot_clms', { ascending: false })
+    .limit(100);
     
   if (error) {
     console.error('Error searching Arkansas providers:', error);
     return [];
   }
   
+  console.log(`Found ${data?.length || 0} results for "${cleanedQuery}"`);
   return data || [];
 }
 
