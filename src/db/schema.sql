@@ -1,4 +1,3 @@
-
 -- Create providers table
 CREATE TABLE providers (
   id TEXT PRIMARY KEY,
@@ -91,3 +90,24 @@ CREATE POLICY "Allow authenticated update on provider_medications"
 
 CREATE POLICY "Allow authenticated delete on provider_medications" 
   ON provider_medications FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Create npi_providers table
+CREATE TABLE npi_providers (
+  id SERIAL PRIMARY KEY,
+  npi TEXT NOT NULL,
+  entity_type_code TEXT,
+  provider_organization_name TEXT,
+  provider_last_name TEXT,
+  provider_first_name TEXT,
+  provider_middle_name TEXT,
+  provider_credential_text TEXT,
+  provider_business_practice_location_address_city_name TEXT,
+  provider_business_practice_location_address_state_name TEXT,
+  provider_business_practice_location_address_postal_code TEXT,
+  provider_business_practice_location_address_telephone_number TEXT,
+  provider_sex_code TEXT,
+  healthcare_provider_taxonomy_code_1 TEXT,
+  provider_license_number_1 TEXT,
+  provider_license_number_state_code_1 TEXT,
+  provider_id TEXT REFERENCES providers(id) ON DELETE CASCADE
+);

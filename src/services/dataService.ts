@@ -3,7 +3,7 @@ import { supabase, Provider, Medication, ProviderMedication, ArkansasProvider, N
 export async function getProviders(): Promise<Provider[]> {
   const { data, error } = await supabase
     .from('providers')
-    .select('*')
+    .select('*, npi_provider_detail:npi_providers(*)')
     .order('name');
     
   if (error) {
@@ -17,7 +17,7 @@ export async function getProviders(): Promise<Provider[]> {
 export async function getProviderById(id: string): Promise<Provider | null> {
   const { data, error } = await supabase
     .from('providers')
-    .select('*')
+    .select('*, npi_provider_detail:npi_providers(*)')
     .eq('id', id)
     .single();
     
@@ -77,7 +77,7 @@ export async function getProvidersByMedication(medicationId: string): Promise<Pr
   
   const { data: providers, error: providersError } = await supabase
     .from('providers')
-    .select('*')
+    .select('*, npi_provider_detail:npi_providers(*)')
     .in('id', providerIds)
     .order('name');
     
@@ -123,7 +123,7 @@ export async function getMedicationsByProvider(providerId: string): Promise<Medi
 export async function searchProviders(query: string): Promise<Provider[]> {
   const { data, error } = await supabase
     .from('providers')
-    .select('*')
+    .select('*, npi_provider_detail:npi_providers(*)')
     .or(`name.ilike.%${query}%, specialties.cs.{${query}}`)
     .order('name');
     
@@ -183,7 +183,7 @@ export async function getArkansasProviderByNpi(npi: string): Promise<ArkansasPro
 
 export async function getNpiDetailByNpi(npi: string): Promise<NpiProviderDetail | null> {
   const { data, error } = await supabase
-    .from('npi_details')
+    .from('npi_providers')
     .select('*')
     .eq('npi', npi)
     .single();

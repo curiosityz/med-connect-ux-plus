@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Get environment variables or use fallback values for development
@@ -32,6 +31,7 @@ export type Provider = {
   image_url?: string;
   bio?: string;
   created_at?: string;
+  npi_provider_detail?: NpiProviderDetail; // Reference to NpiProviderDetail
 }
 
 export type Medication = {
@@ -95,4 +95,5 @@ export type NpiProviderDetail = {
   healthcare_provider_taxonomy_code_1?: string;
   provider_license_number_1?: string;
   provider_license_number_state_code_1?: string;
+  provider_id?: string; // Foreign key reference to Provider
 }
