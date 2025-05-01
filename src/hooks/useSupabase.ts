@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getProviders,
@@ -13,7 +14,15 @@ import {
   getNpiDetailByNpi,
   getArkansasProviderWithDetails,
   searchArkansasProviders,
-  getProvidersForMedication
+  getProvidersForMedication,
+  getNpiDetails,
+  getNpiDetailsByNpi,
+  getNpiAddressByNpi,
+  getNpiPrescriptionsByNpi,
+  getNpiPrescriptionsByDrug,
+  getNpiPrescriptionsByGeneric,
+  searchNpiPrescriptions,
+  getComprehensiveProviderData
 } from '@/services/dataService';
 
 export function useProviders() {
@@ -122,5 +131,70 @@ export function useProvidersForMedication(brandName: string, genericName: string
     queryKey: ['arkansas_providers', 'medication', brandName, genericName],
     queryFn: () => getProvidersForMedication(brandName, genericName),
     enabled: enabled && (brandName.length > 0 || genericName.length > 0)
+  });
+}
+
+// New hooks for the additional NPI data
+
+export function useNpiDetailsList(limit = 50, offset = 0) {
+  return useQuery({
+    queryKey: ['npi_details_list', limit, offset],
+    queryFn: () => getNpiDetails(limit, offset)
+  });
+}
+
+export function useNpiDetailsByNpi(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['npi_details_by_npi', npi],
+    queryFn: () => npi ? getNpiDetailsByNpi(npi) : null,
+    enabled: !!npi
+  });
+}
+
+export function useNpiAddressByNpi(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['npi_address', npi],
+    queryFn: () => npi ? getNpiAddressByNpi(npi) : null,
+    enabled: !!npi
+  });
+}
+
+export function useNpiPrescriptionsByNpi(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['npi_prescriptions', 'by_npi', npi],
+    queryFn: () => npi ? getNpiPrescriptionsByNpi(npi) : [],
+    enabled: !!npi
+  });
+}
+
+export function useNpiPrescriptionsByDrug(drugName: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['npi_prescriptions', 'by_drug', drugName],
+    queryFn: () => getNpiPrescriptionsByDrug(drugName),
+    enabled: enabled && drugName.length >= 2
+  });
+}
+
+export function useNpiPrescriptionsByGeneric(genericName: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['npi_prescriptions', 'by_generic', genericName],
+    queryFn: () => getNpiPrescriptionsByGeneric(genericName),
+    enabled: enabled && genericName.length >= 2
+  });
+}
+
+export function useSearchNpiPrescriptions(query: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['npi_prescriptions', 'search', query],
+    queryFn: () => searchNpiPrescriptions(query),
+    enabled: enabled && query.length >= 2
+  });
+}
+
+export function useComprehensiveProviderData(npi: string | undefined) {
+  return useQuery({
+    queryKey: ['comprehensive_provider_data', npi],
+    queryFn: () => npi ? getComprehensiveProviderData(npi) : { npiDetail: null, npiAddress: null, npiPrescriptions: [] },
+    enabled: !!npi
   });
 }

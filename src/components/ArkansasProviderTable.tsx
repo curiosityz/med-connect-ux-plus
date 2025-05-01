@@ -14,11 +14,13 @@ import { Link } from "react-router-dom";
 interface ArkansasProviderTableProps {
   providers: ArkansasProvider[];
   isLoading?: boolean;
+  showMedicationDetails?: boolean;
 }
 
 const ArkansasProviderTable: React.FC<ArkansasProviderTableProps> = ({ 
   providers, 
-  isLoading = false 
+  isLoading = false,
+  showMedicationDetails = true
 }) => {
   if (isLoading) {
     return (
@@ -45,9 +47,13 @@ const ArkansasProviderTable: React.FC<ArkansasProviderTableProps> = ({
             <TableHead>Provider Name</TableHead>
             <TableHead>City</TableHead>
             <TableHead>Type</TableHead>
-            <TableHead>Medication</TableHead>
-            <TableHead className="text-right">Total Claims</TableHead>
-            <TableHead className="text-right">Beneficiaries</TableHead>
+            {showMedicationDetails && (
+              <>
+                <TableHead>Medication</TableHead>
+                <TableHead className="text-right">Total Claims</TableHead>
+                <TableHead className="text-right">Beneficiaries</TableHead>
+              </>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -63,14 +69,18 @@ const ArkansasProviderTable: React.FC<ArkansasProviderTableProps> = ({
               </TableCell>
               <TableCell>{provider.prscrbr_city}</TableCell>
               <TableCell>{provider.prscrbr_type}</TableCell>
-              <TableCell>
-                <div>
-                  <div className="font-medium">{provider.brnd_name}</div>
-                  <div className="text-sm text-gray-500">{provider.gnrc_name}</div>
-                </div>
-              </TableCell>
-              <TableCell className="text-right">{provider.tot_clms.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{provider.tot_benes.toLocaleString()}</TableCell>
+              {showMedicationDetails && (
+                <>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{provider.brnd_name}</div>
+                      <div className="text-sm text-gray-500">{provider.gnrc_name}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">{provider.tot_clms.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{provider.tot_benes.toLocaleString()}</TableCell>
+                </>
+              )}
             </TableRow>
           ))}
         </TableBody>

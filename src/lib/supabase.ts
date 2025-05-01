@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Get environment variables or use fallback values for development
@@ -96,4 +97,54 @@ export type NpiProviderDetail = {
   provider_license_number_1?: string;
   provider_license_number_state_code_1?: string;
   provider_id?: string; // Foreign key reference to Provider
+}
+
+// New NPI Details type
+export type NpiDetail = {
+  id?: number;
+  npi: string;
+  provider_first_name?: string;
+  provider_last_name_legal_name?: string;
+  last_update_date?: string;
+  npi_deactivation_date?: string;
+  npi_deactivation_reason_code?: string;
+  npi_deactivation_reason_code_name?: string;
+  npi_reactivation_date?: string;
+  provider_credential_text?: string;
+  provider_enumeration_date?: string;
+  healthcare_provider_taxonomy_1_classification?: string;
+  healthcare_provider_taxonomy_1_definition?: string;
+  healthcare_provider_taxonomy_1_grouping?: string;
+  healthcare_provider_taxonomy_1_notes?: string;
+  healthcare_provider_taxonomy_1_specialization?: string;
+}
+
+// NPI Address type
+export type NpiAddress = {
+  id?: number;
+  npi: string;
+  provider_first_line_business_mailing_address?: string;
+  provider_second_line_business_mailing_address?: string;
+  provider_business_mailing_address_city_name?: string;
+  provider_business_mailing_address_postal_code?: string;
+  provider_business_mailing_address_state_name?: string;
+  provider_business_mailing_address_telephone_number?: string;
+  provider_first_line_business_practice_location_address?: string;
+  provider_second_line_business_practice_location_address?: string;
+  provider_business_practice_location_address_postal_code?: string;
+  provider_business_practice_location_address_city_name?: string;
+  provider_business_practice_location_address_state_name?: string;
+  provider_business_practice_location_address_telephone_number?: string;
+  authorized_official_last_name?: string;
+  authorized_official_telephone_number?: string;
+}
+
+// NPI Prescription type
+export type NpiPrescription = {
+  id?: number;
+  npi: string;
+  drug_name: string;
+  generic_name?: string;
+  total_claim_count: number;
+  state?: string;
 }

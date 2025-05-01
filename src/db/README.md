@@ -5,11 +5,18 @@ This document outlines the database structure for the MedConnect application and
 
 ## Database Schema
 
-The database consists of three main tables:
+The database consists of several key tables:
 
+### Original Tables
 1. `providers` - Healthcare providers information
 2. `medications` - Medication information
 3. `provider_medications` - Junction table for the many-to-many relationship between providers and medications
+4. `npi_providers` - Basic NPI provider details
+
+### New Tables
+5. `npi_details` - Comprehensive NPI provider details including taxonomy, specialization
+6. `npi_addresses` - Provider address and contact information
+7. `npi_prescriptions` - Medication prescription data by provider and state
 
 ## Setting up in Supabase
 
@@ -17,50 +24,89 @@ The database consists of three main tables:
 2. Navigate to the SQL Editor
 3. Copy and paste the contents of the `schema.sql` file and run it
 
-## NPI Database Integration
-
-For integrating the large NPI database (12GB), you'll need to:
-
-1. Parse and filter the CSV data to extract only the columns you need
-2. Upload the data in batches to avoid timeout issues
-3. Create appropriate indexes for efficient queries
-
-### Recommended Fields from NPI Dataset
-
-From the extensive fields list, here are the most relevant ones to include:
-
-- NPI (Primary identifier)
-- Entity Type Code
-- Provider Organization Name
-- Provider Last Name
-- Provider First Name
-- Provider Middle Name
-- Provider Credential Text
-- Provider Business Practice Location Address fields
-- Provider Business Practice Location Address City Name
-- Provider Business Practice Location Address State Name
-- Provider Business Practice Location Address Postal Code
-- Provider Business Practice Location Address Telephone Number
-- Provider Sex Code
-- Healthcare Provider Taxonomy Code fields (for specialties)
-- Provider License Number fields
-
-### Simplified Schema for Large Dataset
-
-For handling the large NPI database efficiently, consider creating a separate `npi_providers` table with only the most essential fields, and then link it to your main `providers` table.
-
 ## Data Import Strategy
 
-For importing the 12GB dataset:
-1. Process the CSV file to extract only needed columns
-2. Split into smaller batches
-3. Use the Supabase Storage to temporarily store processed CSV files
-4. Create an Edge Function to handle batch imports
-5. Consider setting up a scheduled job for regular updates
+For the three main data sets:
 
-## Important Considerations
+### 1. NPI Provider Details
+This file contains provider name, healthcare taxonomy, specialization, enumeration, etc. with fields:
+- npi_optimized.npi
+- provider_first_name
+- last_update_date
+- npi_deactivation_date
+- npi_deactivation_reason_code
+- npi_deactivation_reason_code_name
+- npi_reactivation_date
+- provider_credential_text
+- provider_enumeration_date
+- provider_first_name
+- provider_last_name_legal_name
+- healthcare_provider_taxonomy_1_classification
+- healthcare_provider_taxonomy_1_definition
+- healthcare_provider_taxonomy_1_grouping
+- healthcare_provider_taxonomy_1_notes
+- healthcare_provider_taxonomy_1_specialization
 
-- Set appropriate RLS (Row Level Security) policies
-- Create efficient indexes for search fields
-- Consider using Supabase Functions for complex data processing
-- For the physicians.csv data, create a separate table and link it to the NPI data via the Prscrbr_NPI field
+### 2. NPI Provider Addresses
+This file contains prescriber addresses and phone numbers with fields:
+- npi_optimized.npi
+- provider_first_line_business_mailing_address
+- provider_second_line_business_mailing_address
+- provider_business_mailing_address_city_name
+- provider_business_mailing_address_postal_code
+- provider_business_mailing_address_state_name
+- provider_business_mailing_address_telephone_number
+- provider_first_line_business_practice_location_address
+- provider_second_line_business_practice_location_address
+- provider_business_practice_location_address_postal_code
+- provider_business_practice_location_address_city_name
+- provider_business_practice_location_address_state_name
+- provider_business_practice_location_address_telephone_number
+- authorized_official_last_name
+- authorized_official_telephone_number
+
+### 3. State Prescription Data
+State-specific files containing drug prescriptions by NPI with fields:
+- npi
+- drug_name
+- generic_name
+- total_claim_count
+
+## Importing Large Datasets
+
+For importing large datasets (like the 12GB NPI dataset), consider these strategies:
+
+1. **Batch Processing**: Split the data into smaller chunks and import them incrementally
+2. **ETL Pipeline**:
+   - Extract data from source files
+   - Transform to match the database schema
+   - Load into Supabase tables
+
+3. **Using Supabase Storage**:
+   - Upload CSV files to Supabase Storage
+   - Process using Edge Functions
+   - Import into database tables
+
+4. **Direct Import**:
+   - For smaller files, use the Supabase UI to import CSV data
+   - For larger files, use psql command line tool with \COPY command
+
+## Recommended Indexing Strategy
+
+The schema includes optimized indexes for:
+- All NPI fields (for quick provider lookups)
+- Drug names and generic names (for medication searches)
+- State fields (for geographic filtering)
+
+## RLS Policies
+
+Row Level Security (RLS) policies are set up to:
+- Allow public read access to all tables
+- Restrict write operations to authenticated users
+
+## Data Joining Strategy
+
+The data model is designed for efficient queries that join:
+1. Provider details with their specializations
+2. Provider addresses and contact information
+3. Prescription data showing which medications each provider prescribes

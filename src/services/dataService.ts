@@ -1,4 +1,15 @@
-import { supabase, Provider, Medication, ProviderMedication, ArkansasProvider, NpiProviderDetail } from '@/lib/supabase';
+
+import { 
+  supabase, 
+  Provider, 
+  Medication, 
+  ProviderMedication, 
+  ArkansasProvider, 
+  NpiProviderDetail,
+  NpiDetail,
+  NpiAddress,
+  NpiPrescription
+} from '@/lib/supabase';
 
 export async function getProviders(): Promise<Provider[]> {
   const { data, error } = await supabase
@@ -240,6 +251,133 @@ export async function getProvidersForMedication(brandName: string, genericName: 
   }
   
   return data || [];
+}
+
+// New functions for NPI Detail data
+export async function getNpiDetails(limit = 50, offset = 0): Promise<NpiDetail[]> {
+  const { data, error } = await supabase
+    .from('npi_details')
+    .select('*')
+    .range(offset, offset + limit - 1);
+    
+  if (error) {
+    console.error('Error fetching NPI details:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getNpiDetailsByNpi(npi: string): Promise<NpiDetail | null> {
+  const { data, error } = await supabase
+    .from('npi_details')
+    .select('*')
+    .eq('npi', npi)
+    .single();
+    
+  if (error) {
+    console.error(`Error fetching NPI details with NPI ${npi}:`, error);
+    return null;
+  }
+  
+  return data;
+}
+
+// New functions for NPI Address data
+export async function getNpiAddressByNpi(npi: string): Promise<NpiAddress | null> {
+  const { data, error } = await supabase
+    .from('npi_addresses')
+    .select('*')
+    .eq('npi', npi)
+    .single();
+    
+  if (error) {
+    console.error(`Error fetching NPI address with NPI ${npi}:`, error);
+    return null;
+  }
+  
+  return data;
+}
+
+// New functions for NPI Prescription data
+export async function getNpiPrescriptionsByNpi(npi: string): Promise<NpiPrescription[]> {
+  const { data, error } = await supabase
+    .from('npi_prescriptions')
+    .select('*')
+    .eq('npi', npi)
+    .order('total_claim_count', { ascending: false });
+    
+  if (error) {
+    console.error(`Error fetching NPI prescriptions with NPI ${npi}:`, error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getNpiPrescriptionsByDrug(drugName: string): Promise<NpiPrescription[]> {
+  const { data, error } = await supabase
+    .from('npi_prescriptions')
+    .select('*')
+    .ilike('drug_name', `%${drugName}%`)
+    .order('total_claim_count', { ascending: false })
+    .limit(50);
+    
+  if (error) {
+    console.error(`Error fetching NPI prescriptions for drug ${drugName}:`, error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getNpiPrescriptionsByGeneric(genericName: string): Promise<NpiPrescription[]> {
+  const { data, error } = await supabase
+    .from('npi_prescriptions')
+    .select('*')
+    .ilike('generic_name', `%${genericName}%`)
+    .order('total_claim_count', { ascending: false })
+    .limit(50);
+    
+  if (error) {
+    console.error(`Error fetching NPI prescriptions for generic ${genericName}:`, error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function searchNpiPrescriptions(query: string): Promise<NpiPrescription[]> {
+  const { data, error } = await supabase
+    .from('npi_prescriptions')
+    .select('*')
+    .or(`drug_name.ilike.%${query}%, generic_name.ilike.%${query}%`)
+    .order('total_claim_count', { ascending: false })
+    .limit(100);
+    
+  if (error) {
+    console.error(`Error searching NPI prescriptions for ${query}:`, error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// Comprehensive provider data function that joins all related data
+export async function getComprehensiveProviderData(npi: string): Promise<{
+  npiDetail: NpiDetail | null,
+  npiAddress: NpiAddress | null,
+  npiPrescriptions: NpiPrescription[]
+}> {
+  const npiDetail = await getNpiDetailsByNpi(npi);
+  const npiAddress = await getNpiAddressByNpi(npi);
+  const npiPrescriptions = await getNpiPrescriptionsByNpi(npi);
+  
+  return {
+    npiDetail,
+    npiAddress,
+    npiPrescriptions
+  };
 }
 
 // Helper function to seed initial data (for development only)
