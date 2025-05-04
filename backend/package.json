@@ -1,0 +1,24 @@
+{
+  "name": "src",
+  "version": "1.0.0",
+  "description": "prescribrs search",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rapecilantro/med-connect-ux-plus.git"
+  },
+  "keywords": [
+    "prescribers",
+    "search"
+  ],
+  "author": "zachary bennett",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rapecilantro/med-connect-ux-plus/issues"
+  },
+  "homepage": "https://github.com/rapecilantro/med-connect-ux-plus#readme"
+}
