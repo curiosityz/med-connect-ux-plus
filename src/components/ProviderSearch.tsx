@@ -1,16 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProviderSearch } from '@/hooks/useProviderSearch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProviderSearchParams } from '@/lib/api-client';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Form validation schema
 const searchFormSchema = z.object({
@@ -33,8 +35,11 @@ const ProviderSearch = () => {
     locationsLoading,
     searchResults,
     searchLoading,
+    searchError,
     handleSearch
   } = useProviderSearch();
+  
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(searchFormSchema),
@@ -60,12 +65,33 @@ const ProviderSearch = () => {
     // Add location based on user tier
     if (userTier === 'expert' && values.zipCode) {
       searchParams.zipCode = values.zipCode;
+      console.log(`Expert tier: searching with ZIP code ${values.zipCode}`);
     } else if (userTier === 'premium' && values.locationName) {
       searchParams.locationName = values.locationName;
+      console.log(`Premium tier: searching with saved location ${values.locationName}`);
+    } else {
+      console.log(`Basic tier: using primary location (determined by backend)`);
     }
     
+    setHasSubmitted(true);
     handleSearch(searchParams);
   };
+
+  // Log component rendering for debugging
+  useEffect(() => {
+    console.log(`ProviderSearch rendered with tier: ${userTier}`);
+  }, [userTier]);
+  
+  // Log search state
+  useEffect(() => {
+    if (hasSubmitted) {
+      console.log('Search state:', {
+        loading: searchLoading,
+        error: searchError ? searchError.message : null,
+        resultsCount: searchResults?.length || 0
+      });
+    }
+  }, [hasSubmitted, searchLoading, searchError, searchResults]);
 
   return (
     <div className="container mx-auto p-4 space-y-8">
@@ -248,11 +274,26 @@ const ProviderSearch = () => {
               className="w-full md:w-auto" 
               disabled={searchLoading}
             >
-              {searchLoading ? 'Searching...' : 'Find Providers'}
+              {searchLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching...
+                </>
+              ) : 'Find Providers'}
             </Button>
           </form>
         </Form>
       </div>
+      
+      {/* Error display */}
+      {searchError && hasSubmitted && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {searchError instanceof Error ? searchError.message : 'An error occurred during search'}
+          </AlertDescription>
+        </Alert>
+      )}
       
       {/* Results Section */}
       {searchResults && searchResults.length > 0 && (
@@ -290,6 +331,15 @@ const ProviderSearch = () => {
               </TableBody>
             </Table>
           </div>
+        </div>
+      )}
+      
+      {/* No Results Message */}
+      {hasSubmitted && searchResults && searchResults.length === 0 && !searchLoading && !searchError && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
+          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-xl font-bold mb-2">No providers found</h3>
+          <p>Try adjusting your search criteria or expanding the search radius.</p>
         </div>
       )}
     </div>

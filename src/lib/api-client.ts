@@ -50,6 +50,8 @@ export const fetchUserLocations = async (): Promise<UserLocation[]> => {
     const token = await getAuthToken();
     if (!token) throw new Error('Authentication required');
 
+    console.log('Fetching user locations with token:', token.substring(0, 10) + '...');
+    
     const response = await fetch(`${API_BASE_URL}/api/user-locations`, {
       method: 'GET',
       headers: {
@@ -59,11 +61,14 @@ export const fetchUserLocations = async (): Promise<UserLocation[]> => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to fetch locations');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Error response:', response.status, errorData);
+      throw new Error(errorData.error || `Error ${response.status}: Failed to fetch locations`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Locations fetched successfully:', data);
+    return data;
   } catch (error) {
     console.error('Error fetching locations:', error);
     throw error;
@@ -76,6 +81,8 @@ export const findProviders = async (params: ProviderSearchParams): Promise<Provi
     const token = await getAuthToken();
     if (!token) throw new Error('Authentication required');
 
+    console.log('Searching providers with params:', params);
+    
     const response = await fetch(`${API_BASE_URL}/api/find-providers`, {
       method: 'POST',
       headers: {
@@ -86,11 +93,20 @@ export const findProviders = async (params: ProviderSearchParams): Promise<Provi
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `Error ${response.status}: Failed to find providers`);
+      let errorMessage = `Error ${response.status}: Failed to find providers`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        console.error('Could not parse error response:', e);
+      }
+      console.error('Error response:', response.status, errorMessage);
+      throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log(`Found ${data.length} providers for ${params.drugName}`);
+    return data;
   } catch (error) {
     console.error('Error finding providers:', error);
     throw error;

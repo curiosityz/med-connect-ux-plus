@@ -22,7 +22,8 @@ export const useProviderSearch = () => {
       try {
         // This should be implemented to fetch from your Supabase profiles table
         // For now, assuming a mock implementation
-        return { tier: 'basic', loading: false };
+        console.log('User authenticated, returning mock tier');
+        return { tier: 'expert', loading: false }; // Setting to expert for testing
       } catch (error) {
         console.error('Failed to fetch user tier:', error);
         return { tier: 'basic', loading: false };
@@ -38,6 +39,7 @@ export const useProviderSearch = () => {
     enabled: !!user?.id && userTier.tier === 'premium',
     meta: {
       onError: (error: Error) => {
+        console.error('Failed to load locations:', error);
         toast.error(`Failed to load saved locations: ${error.message}`);
       }
     }
@@ -47,18 +49,25 @@ export const useProviderSearch = () => {
   const { data: searchResults = [], isLoading: searchLoading, error: searchError, refetch } = useQuery<ProviderSearchResult[]>({
     queryKey: ['providerSearch', searchParams],
     queryFn: () => {
-      if (!searchParams) return Promise.resolve([]);
+      if (!searchParams) {
+        console.log('No search params provided');
+        return Promise.resolve([]);
+      }
+      console.log('Executing provider search with params:', searchParams);
       return findProviders(searchParams);
     },
     enabled: !!searchParams,
     meta: {
       onError: (error: Error) => {
+        console.error('Search failed:', error);
         toast.error(`Search failed: ${error.message}`);
       }
     }
   });
   
   const handleSearch = (params: ProviderSearchParams) => {
+    console.log('Handling search with params:', params);
+    toast.info(`Searching for providers of ${params.drugName}...`);
     setSearchParams(params);
   };
   
