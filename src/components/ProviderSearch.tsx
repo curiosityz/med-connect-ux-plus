@@ -198,7 +198,7 @@ const ProviderSearch = () => {
                           <SelectContent>
                             {locationsLoading ? (
                               <SelectItem value="" disabled>Loading locations...</SelectItem>
-                            ) : userLocations.length > 0 ? (
+                            ) : userLocations && userLocations.length > 0 ? (
                               userLocations.map(location => (
                                 <SelectItem key={location.id} value={location.location_name}>
                                   {location.location_name} ({location.zip_code})
@@ -255,7 +255,7 @@ const ProviderSearch = () => {
       </div>
       
       {/* Results Section */}
-      {searchResults.length > 0 && (
+      {searchResults && searchResults.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-xl font-bold mb-4">Search Results ({searchResults.length})</h3>
           

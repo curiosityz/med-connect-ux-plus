@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { findProviders, fetchUserLocations, ProviderSearchParams, ProviderSearchResult, UserLocation } from '@/lib/api-client';
-import { useSupabase } from './useSupabase';
+import { useAuth } from './useAuth';
 
 interface UserTier {
   tier: 'basic' | 'premium' | 'expert';
@@ -12,7 +12,7 @@ interface UserTier {
 
 export const useProviderSearch = () => {
   const [searchParams, setSearchParams] = useState<ProviderSearchParams | null>(null);
-  const { user } = useSupabase();
+  const { user } = useAuth();
   
   // Get user's membership tier
   const { data: userTier = { tier: 'basic', loading: true } } = useQuery<UserTier>({
@@ -36,8 +36,10 @@ export const useProviderSearch = () => {
     queryKey: ['userLocations', user?.id],
     queryFn: fetchUserLocations,
     enabled: !!user?.id && userTier.tier === 'premium',
-    onError: (error) => {
-      toast.error(`Failed to load saved locations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    meta: {
+      onError: (error: Error) => {
+        toast.error(`Failed to load saved locations: ${error.message}`);
+      }
     }
   });
   
@@ -49,8 +51,10 @@ export const useProviderSearch = () => {
       return findProviders(searchParams);
     },
     enabled: !!searchParams,
-    onError: (error) => {
-      toast.error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    meta: {
+      onError: (error: Error) => {
+        toast.error(`Search failed: ${error.message}`);
+      }
     }
   });
   
