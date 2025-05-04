@@ -32,6 +32,9 @@ const MainNavigation = () => {
           <Link to="/medications" className="text-gray-600 hover:text-medblue-500 font-medium">
             Find Prescribers
           </Link>
+          <Link to="/find-providers" className="text-gray-600 hover:text-medblue-500 font-medium">
+            Provider Search
+          </Link>
           <Link to="/about" className="text-gray-600 hover:text-medblue-500 font-medium">
             About
           </Link>

@@ -11,6 +11,7 @@ import ProviderDetailPage from "./pages/ProviderDetailPage";
 import NotFound from "./pages/NotFound";
 import ArkansasProvidersPage from "./pages/ArkansasProvidersPage";
 import ArkansasProviderDetailPage from "./pages/ArkansasProviderDetailPage";
+import ProviderSearchPage from "./pages/ProviderSearchPage";
 
 // Initialize query client with default options
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/providers/:id" element={<ProviderDetailPage />} />
           <Route path="/arkansas-providers" element={<ArkansasProvidersPage />} />
           <Route path="/arkansas-providers/:npi" element={<ArkansasProviderDetailPage />} />
+          <Route path="/find-providers" element={<ProviderSearchPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

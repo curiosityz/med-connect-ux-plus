@@ -20,6 +20,9 @@ const Hero = () => {
             <Button asChild size="lg" className="bg-medblue-600 hover:bg-medblue-700 text-lg font-medium">
               <Link to="/medications">Find Medication Prescribers</Link>
             </Button>
+            <Button asChild size="lg" variant="outline" className="text-lg font-medium">
+              <Link to="/find-providers">Advanced Provider Search</Link>
+            </Button>
           </div>
           
           <div className="relative mt-8 max-w-md animate-fade-in" style={{animationDelay: "0.4s"}}>
