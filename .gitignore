@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+frontend/node_modules/
+frontend/.env
+frontend/build/
+
+# Backend ignores
+backend/node_modules/
+backend/.env* # Ignore all .env files
+backend/logs/ # If you create log files
+
+# Other general ignores
+.DS_Store
+*.log
