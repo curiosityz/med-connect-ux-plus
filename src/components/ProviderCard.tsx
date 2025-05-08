@@ -1,76 +1,86 @@
+import React from 'react';
+import { Provider } from '@/lib/supabase';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // For image_url
+import { Button } from '@/components/ui/button'; // For a "View Profile" button
+import { Link } from 'react-router-dom'; // Assuming react-router-dom for navigation
 
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-
-export interface ProviderCardProps {
-  id: string;
-  name: string;
-  title: string;
-  specialties: string[];
-  rating: number;
-  reviewCount: number;
-  location: string;
-  availability: string;
-  imageUrl?: string;
+interface ProviderCardProps {
+  provider: Provider;
 }
 
-const ProviderCard: React.FC<ProviderCardProps> = ({
-  id,
-  name,
-  title,
-  specialties,
-  rating,
-  reviewCount,
-  location,
-  availability,
-  imageUrl
-}) => {
+export const ProviderCard: React.FC<ProviderCardProps> = ({ provider }) => {
+  const displayName = provider.name || `${provider.first_name || ''} ${provider.last_name || ''}`.trim() || 'Unknown Provider';
+  const displayLocation = provider.location || `${provider.city || 'Unknown City'}, ${provider.state || 'N/A'}`;
+  const providerInitials = (provider.first_name?.[0] || '') + (provider.last_name?.[0] || '');
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm card-hover">
-      <div className="p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-medblue-100 overflow-hidden flex-shrink-0">
-            {imageUrl ? (
-              <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-medblue-600">
-                {name.charAt(0)}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-medblue-800">{name}</h3>
-            <p className="text-sm text-gray-600">{title}</p>
-            <div className="flex items-center mt-1">
-              <span className="text-sm font-medium text-medteal-600">{rating.toFixed(1)} ★</span>
-              <span className="text-xs text-gray-500 ml-1">({reviewCount} reviews)</span>
+    <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
+      <CardHeader className="flex flex-row items-start space-x-4 pb-2">
+        {provider.image_url && (
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={provider.image_url} alt={displayName} />
+            <AvatarFallback>{providerInitials || 'P'}</AvatarFallback>
+          </Avatar>
+        )}
+        <div className="flex-1">
+          <CardTitle className="text-xl font-semibold">{displayName}</CardTitle>
+          {provider.title && <CardDescription className="text-sm">{provider.title}</CardDescription>}
+        </div>
+      </CardHeader>
+      <CardContent className="flex-grow space-y-3 pt-2">
+        <div>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Location:</p>
+          <p className="text-sm text-muted-foreground">{displayLocation}</p>
+        </div>
+        
+        {provider.specialties && provider.specialties.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Specialties:</p>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {provider.specialties.slice(0, 3).map((specialty, index) => (
+                <Badge key={index} variant="outline" className="text-xs">{specialty}</Badge>
+              ))}
+              {provider.specialties.length > 3 && (
+                <Badge variant="outline" className="text-xs">+{provider.specialties.length - 3} more</Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">{location}</p>
           </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-x-4 text-sm">
+          <div>
+            <p className="font-medium text-gray-700 dark:text-gray-300">NPI:</p>
+            <p className="text-muted-foreground">{provider.npi || 'N/A'}</p>
+          </div>
+          {typeof provider.rating === 'number' && (
+            <div>
+              <p className="font-medium text-gray-700 dark:text-gray-300">Rating:</p>
+              <p className="text-muted-foreground">
+                {provider.rating.toFixed(1)}/5 ({provider.review_count || 0} reviews)
+              </p>
+            </div>
+          )}
         </div>
         
-        <div className="flex flex-wrap gap-1 mb-3">
-          {specialties.map((specialty, idx) => (
-            <span 
-              key={idx}
-              className="px-2 py-1 bg-medblue-50 text-medblue-700 text-xs font-medium rounded-full"
-            >
-              {specialty}
-            </span>
-          ))}
-        </div>
-        
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-sm text-medteal-600 font-medium">{availability}</span>
-          <Button asChild size="sm" className="bg-medblue-600 hover:bg-medblue-700">
-            <Link to={`/providers/${id}`}>Book Appointment</Link>
-          </Button>
-        </div>
-      </div>
-    </div>
+        {provider.availability && (
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Availability:</p>
+            <p className="text-sm text-muted-foreground">{provider.availability}</p>
+          </div>
+        )}
+
+        {/* Consider adding a snippet of the bio if available and concise */}
+        {/* {provider.bio && <p className="text-xs text-muted-foreground truncate">{provider.bio}</p>} */}
+
+      </CardContent>
+      <CardFooter className="pt-4">
+        {/* Link to a detailed provider page, e.g., /providers/:npi or /providers/:id */}
+        <Button asChild variant="default" className="w-full">
+          <Link to={`/providers/${provider.npi || provider.id}`}>View Profile</Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
-
-export default ProviderCard;

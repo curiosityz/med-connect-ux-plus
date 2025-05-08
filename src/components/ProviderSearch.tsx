@@ -1,349 +1,309 @@
-
-import React, { useState, useEffect } from 'react';
-import { useProviderSearch } from '@/hooks/useProviderSearch';
+import React, { useState, useMemo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useDebounce } from '@/hooks/useDebounce'; // Import useDebounce
+import { useDrugSuggestions } from '@/hooks/useDrugSuggestions'; // Import the suggestions hook
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ProviderSearchParams } from '@/lib/api-client';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { SearchApiParams } from '@/lib/api-client';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Star } from "lucide-react";
+import { Loader2 } from 'lucide-react'; // For loading indicator
 
-// Form validation schema
-const searchFormSchema = z.object({
-  drugName: z.string().min(1, "Medication name is required"),
-  radiusMiles: z.number().positive().max(100).optional(),
-  minClaims: z.number().min(0).optional(),
-  taxonomyClass: z.string().optional(),
-  sortBy: z.enum(['distance', 'claims']).optional(),
-  locationName: z.string().optional(),
-  zipCode: z.string().regex(/^\d{5}$/, "Enter a valid 5-digit ZIP code").optional(),
-});
+// Mock data for UI placeholders (Insurances)
+const MOCK_INSURANCES = [
+  { id: "aetna", label: "Aetna" },
+  { id: "cigna", label: "Cigna" },
+  { id: "uhc", label: "United Healthcare" },
+  { id: "bluecross", label: "Blue Cross Blue Shield" },
+  { id: "medicare", label: "Medicare" },
+];
 
-type SearchFormValues = z.infer<typeof searchFormSchema>;
+type SortByType = SearchApiParams['sortBy'];
 
-const ProviderSearch = () => {
-  const {
-    userTier,
-    tierLoading,
-    userLocations,
-    locationsLoading,
-    searchResults,
-    searchLoading,
-    searchError,
-    handleSearch
-  } = useProviderSearch();
-  
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  
-  const form = useForm<SearchFormValues>({
-    resolver: zodResolver(searchFormSchema),
-    defaultValues: {
-      drugName: '',
-      radiusMiles: 10,
-      minClaims: 0,
-      taxonomyClass: '',
-      sortBy: 'distance',
-      zipCode: '',
-    },
-  });
-  
-  const onSubmit = (values: SearchFormValues) => {
-    const searchParams: ProviderSearchParams = {
-      drugName: values.drugName,
-      radiusMiles: values.radiusMiles,
-      minClaims: values.minClaims,
-      taxonomyClass: values.taxonomyClass || undefined,
-      sortBy: values.sortBy,
-    };
-    
-    // Add location based on user tier
-    if (userTier === 'expert' && values.zipCode) {
-      searchParams.zipCode = values.zipCode;
-      console.log(`Expert tier: searching with ZIP code ${values.zipCode}`);
-    } else if (userTier === 'premium' && values.locationName) {
-      searchParams.locationName = values.locationName;
-      console.log(`Premium tier: searching with saved location ${values.locationName}`);
+// Define props for the controlled component
+interface ProviderSearchFiltersProps {
+  drugName: string;
+  onDrugNameChange: (value: string) => void;
+  locationInput: string;
+  onLocationInputChange: (value: string) => void;
+  radius: number;
+  onRadiusChange: (value: number) => void;
+  minClaims: number | undefined;
+  onMinClaimsChange: (value: number | undefined) => void;
+  taxonomyClass: string | undefined;
+  onTaxonomyClassChange: (value: string | undefined) => void;
+  sortBy: SortByType;
+  onSortByChange: (value: SortByType) => void;
+  selectedInsurances: string[];
+  onSelectedInsurancesChange: (value: string[]) => void;
+  minRating: number;
+  onMinRatingChange: (value: number) => void;
+}
+
+export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
+  drugName, onDrugNameChange,
+  locationInput, onLocationInputChange,
+  radius, onRadiusChange,
+  minClaims, onMinClaimsChange,
+  taxonomyClass, onTaxonomyClassChange,
+  sortBy, onSortByChange,
+  selectedInsurances, onSelectedInsurancesChange,
+  minRating, onMinRatingChange
+}) => {
+  const { membershipTier, loading: authLoading } = useAuth();
+
+  // State for drug suggestions UI
+  const [drugInput, setDrugInput] = useState(''); // Separate state for the input field value
+  const debouncedDrugInput = useDebounce(drugInput, 300); // Debounce the input for API call
+  const { data: drugSuggestions, isLoading: isLoadingSuggestions, isError: isSuggestionsError } = useDrugSuggestions(debouncedDrugInput);
+  const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
+
+  // Memoize primary location zip (example)
+  const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
+
+  // Handle drug input change
+  const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDrugInput(value); // Update the raw input state
+    if (value.length >= 2) {
+      setShowSuggestionsDropdown(true); // Show dropdown when typing
     } else {
-      console.log(`Basic tier: using primary location (determined by backend)`);
+      setShowSuggestionsDropdown(false);
     }
-    
-    setHasSubmitted(true);
-    handleSearch(searchParams);
+    // Note: We don't call onDrugNameChange here directly anymore.
+    // It's called when a suggestion is selected or maybe on blur/enter if needed.
   };
 
-  // Log component rendering for debugging
-  useEffect(() => {
-    console.log(`ProviderSearch rendered with tier: ${userTier}`);
-  }, [userTier]);
-  
-  // Log search state
-  useEffect(() => {
-    if (hasSubmitted) {
-      console.log('Search state:', {
-        loading: searchLoading,
-        error: searchError ? searchError.message : null,
-        resultsCount: searchResults?.length || 0
-      });
+  // Handle selecting a drug suggestion
+  const handleDrugSuggestionSelect = (suggestion: string) => {
+    setDrugInput(suggestion); // Update input field
+    onDrugNameChange(suggestion); // Update the actual filter value passed to parent
+    setShowSuggestionsDropdown(false);
+  };
+
+  // Handle setting drug name filter on input blur if no suggestion was clicked
+  // (Optional: depends on desired UX)
+  const handleDrugInputBlur = () => {
+    // Delay hiding dropdown to allow click on suggestion
+    setTimeout(() => {
+        setShowSuggestionsDropdown(false);
+        // Update the main filter state only if the input wasn't cleared
+        // and doesn't exactly match the current filter (if already set by suggestion click)
+        if (drugInput && drugInput !== drugName) {
+             onDrugNameChange(drugInput);
+        }
+    }, 150);
+  };
+
+
+  // Handle insurance checkbox change
+  const handleInsuranceChange = (checked: boolean | 'indeterminate', insuranceId: string) => {
+    const newSelection = checked
+      ? [...selectedInsurances, insuranceId]
+      : selectedInsurances.filter(id => id !== insuranceId);
+    onSelectedInsurancesChange(newSelection); // Call prop handler
+  };
+
+  // Render location input based on tier
+  const renderLocationInput = () => {
+    if (authLoading) return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
+
+    let labelText = "Zip Code";
+    let placeholderText = "e.g., 90210";
+
+    if (membershipTier === 'basic') {
+      return (
+        <div className="sm:col-span-1">
+          <Label htmlFor="location" className="font-semibold block mb-1">Primary Location</Label>
+          {primaryLocationZip ? (
+            <Input id="location" type="text" value={primaryLocationZip} disabled readOnly />
+          ) : (
+            <p className="text-sm text-muted-foreground pt-2">
+              Primary location not set. Please set it in your profile to enable search.
+            </p>
+          )}
+        </div>
+      );
+    } else if (membershipTier === 'premium') {
+      labelText = "Location Name / Zip Code";
+      placeholderText = "Enter city, state, or zip";
     }
-  }, [hasSubmitted, searchLoading, searchError, searchResults]);
+
+    return (
+      <div className="sm:col-span-1">
+        <Label htmlFor="locationInput" className="font-semibold block mb-1">{labelText}</Label>
+        <Input
+          id="locationInput"
+          type="text"
+          value={locationInput}
+          onChange={(e) => onLocationInputChange(e.target.value)} // Use prop handler
+          placeholder={placeholderText}
+          disabled={authLoading}
+        />
+        {membershipTier === 'premium' && (
+          <p className="text-xs text-muted-foreground mt-1">TODO: Select from saved locations.</p>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold mb-6">Find Medication Providers</h2>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Drug Name Input */}
-            <FormField
-              control={form.control}
-              name="drugName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Medication Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter medication name" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Enter a medication name like "ALPRAZOLAM"
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+    <details className="p-4 border rounded-lg shadow-sm bg-card" open>
+      <summary className="font-semibold text-lg cursor-pointer hover:text-primary">Search Filters</summary>
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-end">
+        {/* Drug Name */}
+        <div className="relative sm:col-span-1">
+          <Label htmlFor="drugName" className="font-semibold block mb-1">Drug Name</Label>
+          <Input
+            id="drugName"
+            type="text"
+            value={drugInput} // Use local input state for value
+            onChange={handleDrugInputChange}
+            onFocus={() => { // Show suggestions on focus if input is long enough
+              if (drugInput.length >= 2 && drugSuggestions && drugSuggestions.length > 0) {
+                setShowSuggestionsDropdown(true);
+              }
+            }}
+            onBlur={handleDrugInputBlur} // Handle blur event
+            placeholder="e.g., Lisinopril"
+            autoComplete="off"
+          />
+          {/* Suggestions Dropdown */}
+          {showSuggestionsDropdown && (
+            <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {isLoadingSuggestions && (
+                <div className="p-2 text-center text-muted-foreground flex items-center justify-center">
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
+                </div>
               )}
-            />
-            
-            {/* Search Radius */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="radiusMiles"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Search Radius (miles)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field} 
-                        onChange={e => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              {/* Minimum Claims */}
-              <FormField
-                control={form.control}
-                name="minClaims"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Minimum Claims</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field}
-                        onChange={e => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            {/* Taxonomy Class & Sort By */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="taxonomyClass"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provider Specialty</FormLabel>
-                    <FormControl>
-                      <Input placeholder="E.g. Internal Medicine" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="sortBy"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sort Results By</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
+              {!isLoadingSuggestions && isSuggestionsError && (
+                 <div className="p-2 text-center text-red-500">Error fetching suggestions.</div>
+              )}
+              {!isLoadingSuggestions && !isSuggestionsError && (!drugSuggestions || drugSuggestions.length === 0) && debouncedDrugInput.length >= 2 && (
+                 <div className="p-2 text-center text-muted-foreground">No suggestions found.</div>
+              )}
+              {!isLoadingSuggestions && drugSuggestions && drugSuggestions.length > 0 && (
+                <ul>
+                  {drugSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      className="px-3 py-2 hover:bg-muted cursor-pointer"
+                      onMouseDown={() => handleDrugSuggestionSelect(suggestion)} // Use onMouseDown
                     >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select sort order" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="distance">Distance</SelectItem>
-                        <SelectItem value="claims">Number of Claims</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            
-            {/* Location Selection based on user tier */}
-            {tierLoading ? (
-              <div className="p-4 bg-gray-50 rounded text-center">Loading your membership details...</div>
-            ) : (
-              <>
-                {userTier === 'premium' && (
-                  <FormField
-                    control={form.control}
-                    name="locationName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Select Saved Location</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose a saved location" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {locationsLoading ? (
-                              <SelectItem value="" disabled>Loading locations...</SelectItem>
-                            ) : userLocations && userLocations.length > 0 ? (
-                              userLocations.map(location => (
-                                <SelectItem key={location.id} value={location.location_name}>
-                                  {location.location_name} ({location.zip_code})
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="" disabled>No saved locations</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-                
-                {userTier === 'expert' && (
-                  <FormField
-                    control={form.control}
-                    name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter 5-digit ZIP code" maxLength={5} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-                
-                {userTier === 'basic' && (
-                  <div className="p-4 border border-amber-200 bg-amber-50 rounded">
-                    <p className="text-amber-800">
-                      Basic tier: We'll use your primary location for the search.
-                      <br />
-                      <span className="text-sm">Upgrade to Premium to use saved locations or Expert to search any ZIP code.</span>
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-            
-            <Button 
-              type="submit" 
-              className="w-full md:w-auto" 
-              disabled={searchLoading}
-            >
-              {searchLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Searching...
-                </>
-              ) : 'Find Providers'}
-            </Button>
-          </form>
-        </Form>
-      </div>
-      
-      {/* Error display */}
-      {searchError && hasSubmitted && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {searchError instanceof Error ? searchError.message : 'An error occurred during search'}
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {/* Results Section */}
-      {searchResults && searchResults.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-xl font-bold mb-4">Search Results ({searchResults.length})</h3>
-          
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Provider Name</TableHead>
-                  <TableHead>Specialty</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Claims</TableHead>
-                  <TableHead>Distance (mi)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {searchResults.map((provider) => (
-                  <TableRow key={provider.npi}>
-                    <TableCell>
-                      <div className="font-medium">{provider.provider_first_name} {provider.provider_last_name_legal_name}</div>
-                      <div className="text-sm text-gray-500">NPI: {provider.npi}</div>
-                    </TableCell>
-                    <TableCell>{provider.taxonomy_class || 'N/A'}</TableCell>
-                    <TableCell>
-                      <div>{provider.practice_address1}</div>
-                      {provider.practice_address2 && <div>{provider.practice_address2}</div>}
-                      <div>{provider.practice_city}, {provider.practice_state} {provider.practice_zip.substring(0, 5)}</div>
-                    </TableCell>
-                    <TableCell>{provider.claims}</TableCell>
-                    <TableCell>{parseFloat(provider.distance_miles).toFixed(1)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          )}
+        </div>
+
+        {/* Location Input */}
+        {renderLocationInput()}
+
+        {/* Radius */}
+        <div className="sm:col-span-1">
+          <Label htmlFor="radius" className="font-semibold block mb-1">Search Radius (miles)</Label>
+          <Input
+            id="radius"
+            type="number"
+            value={radius}
+            onChange={(e) => onRadiusChange(Number(e.target.value))} // Use prop handler
+            placeholder="e.g., 10"
+            min="1"
+          />
+        </div>
+
+        {/* Min Claims */}
+        <div className="sm:col-span-1">
+          <Label htmlFor="minClaims" className="font-semibold block mb-1">Min. Claims</Label>
+          <Input
+            id="minClaims"
+            type="number"
+            value={minClaims || ''}
+            onChange={(e) => onMinClaimsChange(e.target.value ? Number(e.target.value) : undefined)} // Use prop handler
+            placeholder="e.g., 5"
+            min="0"
+          />
+        </div>
+
+        {/* Taxonomy Class */}
+        <div className="sm:col-span-1">
+          <Label htmlFor="taxonomyClass" className="font-semibold block mb-1">Specialty (Taxonomy)</Label>
+          <Input
+            id="taxonomyClass"
+            type="text"
+            value={taxonomyClass || ''}
+            onChange={(e) => onTaxonomyClassChange(e.target.value || undefined)} // Use prop handler
+            placeholder="e.g., Internal Medicine"
+          />
+        </div>
+
+        {/* Sort By */}
+        <div className="sm:col-span-1">
+          <Label htmlFor="sortBy" className="font-semibold block mb-1">Sort By</Label>
+          <Select value={sortBy} onValueChange={(value: SortByType) => onSortByChange(value)}> {/* Use prop handler */}
+            <SelectTrigger id="sortBy">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="distance">Distance</SelectItem>
+              <SelectItem value="claims">Claims</SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Insurance Filter Placeholder */}
+        <div className="sm:col-span-2 md:col-span-2">
+          <Label className="font-semibold block mb-1">Insurance Accepted (Placeholder)</Label>
+          <div className="p-3 border rounded-md h-32 overflow-y-auto space-y-2 bg-background">
+            {MOCK_INSURANCES.map(insurance => (
+              <div key={insurance.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`insurance-${insurance.id}`}
+                  checked={selectedInsurances.includes(insurance.id)}
+                  onCheckedChange={(checked) => handleInsuranceChange(!!checked, insurance.id)} // Use handler
+                />
+                <Label htmlFor={`insurance-${insurance.id}`} className="text-sm font-normal cursor-pointer">
+                  {insurance.label}
+                </Label>
+              </div>
+            ))}
           </div>
+          <p className="text-xs text-muted-foreground mt-1">Multi-select. Actual component needed.</p>
         </div>
-      )}
-      
-      {/* No Results Message */}
-      {hasSubmitted && searchResults && searchResults.length === 0 && !searchLoading && !searchError && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-xl font-bold mb-2">No providers found</h3>
-          <p>Try adjusting your search criteria or expanding the search radius.</p>
+
+        {/* Min Rating Filter Placeholder */}
+        <div className="sm:col-span-1 md:col-span-2">
+          <Label htmlFor="minRating" className="font-semibold block mb-1">Min. Rating (1-5)</Label>
+          <div className="flex items-center space-x-1 mb-1">
+            {[1, 2, 3, 4, 5].map(star => (
+              <Star
+                key={star}
+                className={`h-6 w-6 cursor-pointer ${minRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`}
+                onClick={() => onMinRatingChange(minRating === star ? 0 : star)} // Use prop handler
+              />
+            ))}
+          </div>
+           <Input
+            id="minRatingInput"
+            type="number"
+            value={minRating || ''}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              onMinRatingChange(val >=0 && val <=5 ? val : 0); // Use prop handler
+            }}
+            className="w-24 text-sm"
+            min="0" max="5" step="1"
+            placeholder="0"
+          />
+          <p className="text-xs text-muted-foreground mt-1">0 for no filter. Click stars or type.</p>
         </div>
-      )}
-    </div>
+      </div>
+    </details>
   );
 };
-
-export default ProviderSearch;

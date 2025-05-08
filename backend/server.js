@@ -10,6 +10,7 @@ const { validate, Joi } = require('express-validation');
 const { v4: uuidv4 } = require('uuid');
 const morgan = require('morgan');
 const winston = require('winston');
+const cookieParser = require('cookie-parser'); // P8a1d
 
 // --- Logging Configuration ---
 const logger = winston.createLogger({
@@ -72,6 +73,7 @@ app.use(cors({
 // Request parsing
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(cookieParser()); // P8a1d
 
 // Rate limiting - different for production vs development
 const apiLimiter = rateLimit({
@@ -151,20 +153,19 @@ const authenticateToken = async (req, res, next) => {
   logger.debug('Processing authentication', { requestId });
   
   const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-    logger.warn('Authentication failed: No authorization header', { requestId });
-    return res.status(401).json({ error: "Authorization header required" });
+  const token = authHeader && authHeader.split(' ')[1];
+  const cookieToken = req.cookies['auth_token']; // P8a1d
+
+  if (!token && !cookieToken) {
+    logger.warn('Authentication failed: No token provided', { requestId });
+    return res.status(401).json({ error: "Authorization token required" });
   }
-  
-  const token = authHeader.split(' ')[1]; // Bearer TOKEN
-  if (!token) {
-    logger.warn('Authentication failed: Missing token', { requestId });
-    return res.status(401).json({ error: "Bearer token not found" });
-  }
+
+  const authToken = token || cookieToken; // P8a1d
 
   try {
     // Verify token with Supabase Auth and get user data
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabase.auth.getUser(authToken);
 
     if (error || !user) {
       logger.warn('Authentication failed: Invalid token', { 
@@ -192,6 +193,22 @@ const authenticateToken = async (req, res, next) => {
     logger.error('Authentication error', { requestId, error: err.message, stack: err.stack });
     res.status(500).json({ error: "Internal server error during authentication" });
   }
+};
+
+// --- Role-based Access Control Middleware --- Pa31f
+const verifyUserRole = (requiredRole) => {
+  return (req, res, next) => {
+    const { user } = req;
+    if (!user) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    if (user.role !== requiredRole) {
+      return res.status(403).json({ error: "Access denied: insufficient permissions" });
+    }
+
+    next();
+  };
 };
 
 // --- Service Layer ---

@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import ArkansasProvidersPage from "./pages/ArkansasProvidersPage";
 import ArkansasProviderDetailPage from "./pages/ArkansasProviderDetailPage";
 import ProviderSearchPage from "./pages/ProviderSearchPage";
+import { AuthPage } from "./pages/AuthPage";
+import ManageLocationsPage from "./pages/ManageLocationsPage"; // Import ManageLocationsPage
 
 // Initialize query client with default options
 const queryClient = new QueryClient({
@@ -37,6 +39,8 @@ const App = () => (
           <Route path="/arkansas-providers" element={<ArkansasProvidersPage />} />
           <Route path="/arkansas-providers/:npi" element={<ArkansasProviderDetailPage />} />
           <Route path="/find-providers" element={<ProviderSearchPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/manage-locations" element={<ManageLocationsPage />} /> {/* Add ManageLocationsPage route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

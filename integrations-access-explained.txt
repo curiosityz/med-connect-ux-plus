@@ -1,0 +1,1217 @@
+# Backend Terminal Access Commands
+
+## SSH Access
+```bash
+# Basic SSH access
+ssh username@server-ip-or-domain
+
+# SSH with specific key
+ssh -i /path/to/private_key username@server-ip-or-domain
+
+# SSH with port specification
+ssh -p 2222 username@server-ip-or-domain
+
+# Execute a command directly
+ssh username@server-ip-or-domain 'ls -la /var/www'
+
+# SSH tunnel for port forwarding (local port 8888 to remote port 80)
+ssh -L 8888:localhost:80 username@server-ip-or-domain
+```
+
+## Docker Container Access
+```bash
+# List running containers
+docker ps
+
+# Execute bash in a container
+docker exec -it container_name bash
+
+# View container logs
+docker logs container_name
+
+# View container stats
+docker stats container_name
+
+# Copy files to/from container
+docker cp ./local/file container_name:/path/in/container
+docker cp container_name:/path/in/container ./local/destination
+```
+
+## Kubernetes Access
+```bash
+# List pods
+kubectl get pods
+
+# Get detailed pod info
+kubectl describe pod pod_name
+
+# Execute command in pod
+kubectl exec -it pod_name -- bash
+
+# View pod logs
+kubectl logs pod_name
+
+# Port forwarding
+kubectl port-forward pod_name 8080:80
+
+# Copy files to/from pod
+kubectl cp ./local/file namespace/pod_name:/path/in/pod
+kubectl cp namespace/pod_name:/path/in/pod ./local/destination
+```
+
+## Database CLI Access
+```bash
+# PostgreSQL
+psql -h hostname -U username -d database_name
+
+# MySQL
+mysql -h hostname -u username -p database_name
+
+# MongoDB
+mongo --host hostname -u username -p password database_name
+
+# Redis
+redis-cli -h hostname -p port -a password
+```
+
+## Server Management
+```bash
+# Check running processes
+ps aux | grep node
+
+# View resource usage
+top
+htop
+
+# View disk usage
+df -h
+du -sh /path/to/directory
+
+# View network connections
+netstat -tuln
+ss -tuln
+
+# Process management
+kill process_id
+killall process_name
+```
+
+## Application Management
+```bash
+# Node.js application with PM2
+pm2 list
+pm2 start app.js
+pm2 stop app_name
+pm2 restart app_name
+pm2 logs app_name
+
+# Python applications
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+## File Operations
+```bash
+# View file content
+cat file.txt
+less file.txt
+head -n 20 file.txt
+tail -n 20 file.txt
+
+# Create/edit files
+nano file.txt
+vim file.txt
+
+# File permissions
+chmod +x script.sh
+chown user:group file.txt
+```
+
+## Git Operations (Backend Code)
+```bash
+# Clone repository
+git clone repository_url
+
+# Check status
+git status
+
+# Pull latest changes
+git pull origin main
+
+# Deploy changes
+git checkout production
+git merge main
+git push origin production
+```
+
+_________________________________________________________________________
+
+flowchart TB
+    subgraph Client["Client Side"]
+        Browser["Web Browser"]
+        MobileApp["Mobile App"]
+    end
+    
+    subgraph CDN["Content Delivery Network"]
+        StaticAssets["Static Assets\n(JS, CSS, Images)"]
+    end
+    
+    subgraph LoadBalancer["Load Balancer"]
+        NGINX["NGINX Proxy"]
+    end
+    
+    subgraph FrontendServers["Frontend Servers"]
+        ReactApp["React Application"]
+        NextJS["Next.js SSR"]
+    end
+    
+    subgraph APIGateway["API Gateway"]
+        Gateway["API Gateway\n(Rate Limiting, Auth)"]
+    end
+    
+    subgraph BackendServices["Backend Services"]
+        AuthService["Authentication\nService"]
+        UserService["User\nService"]
+        ProductService["Product\nService"]
+        PaymentService["Payment\nService"]
+        NotificationService["Notification\nService"]
+    end
+    
+    subgraph MessageBroker["Message Broker"]
+        Kafka["Apache Kafka / RabbitMQ"]
+    end
+    
+    subgraph Databases["Databases"]
+        SQL["SQL Database\n(PostgreSQL/MySQL)"]
+        NoSQL["NoSQL Database\n(MongoDB)"]
+        Redis["Redis Cache"]
+    end
+    
+    subgraph Storage["Object Storage"]
+        S3["S3 Compatible\nStorage"]
+    end
+    
+    subgraph AdminLayer["Admin & Monitoring"]
+        CLI["Command Line Tools"]
+        AdminPanel["Admin Dashboard"]
+        Monitoring["Monitoring Tools\n(Prometheus, Grafana)"]
+    end
+    
+    Browser --> CDN
+    MobileApp --> APIGateway
+    Browser --> FrontendServers
+    FrontendServers --> CDN
+    FrontendServers --> APIGateway
+    APIGateway --> BackendServices
+    BackendServices <--> MessageBroker
+    BackendServices <--> Databases
+    BackendServices --> Storage
+    AdminLayer --> BackendServices
+    LoadBalancer --> FrontendServers
+    LoadBalancer --> APIGateway
+    
+    classDef primary fill:#f9f,stroke:#333,stroke-width:2px
+    classDef secondary fill:#bbf,stroke:#333,stroke-width:1px
+    classDef tertiary fill:#ddf,stroke:#333,stroke-width:1px
+    
+    class Browser,MobileApp,CLI,AdminPanel primary
+    class BackendServices,FrontendServers,Databases,APIGateway secondary
+    class CDN,MessageBroker,Storage,Monitoring tertiary
+
+
+____________________________________________________________________
+
+
+
+// Backend database access for self-hosted Supabase PostgreSQL
+const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
+
+// Direct PostgreSQL connection for advanced operations
+const pgPool = new Pool({
+  host: process.env.SELF_HOSTED_PG_HOST,
+  port: process.env.SELF_HOSTED_PG_PORT || 5432,
+  database: process.env.SELF_HOSTED_PG_DATABASE,
+  user: process.env.SELF_HOSTED_PG_USER,
+  password: process.env.SELF_HOSTED_PG_PASSWORD,
+  ssl: process.env.SELF_HOSTED_PG_SSL === 'true' ? { rejectUnauthorized: false } : false
+});
+
+// Supabase client for the self-hosted instance
+const selfHostedSupabase = createClient(
+  process.env.SELF_HOSTED_SUPABASE_URL,
+  process.env.SELF_HOSTED_SUPABASE_KEY
+);
+
+// Example: Query prescriber data
+async function getPrescriberData(filters = {}) {
+  try {
+    let query = selfHostedSupabase
+      .from('prescribers')
+      .select('*');
+    
+    // Apply filters if provided
+    if (filters.state) query = query.eq('state', filters.state);
+    if (filters.specialty) query = query.eq('specialty', filters.specialty);
+    if (filters.minPrescriptions) query = query.gte('prescription_count', filters.minPrescriptions);
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching prescriber data:', error);
+    throw error;
+  }
+}
+
+// Example: Modify existing table structure
+async function addColumnToPrescriberTable(columnName, dataType, defaultValue = null) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // Check if column already exists
+    const checkResult = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'prescribers' AND column_name = $1
+    `, [columnName]);
+    
+    if (checkResult.rows.length === 0) {
+      // Column doesn't exist, add it
+      let alterQuery = `ALTER TABLE prescribers ADD COLUMN ${columnName} ${dataType}`;
+      if (defaultValue !== null) {
+        alterQuery += ` DEFAULT ${defaultValue}`;
+      }
+      
+      await client.query(alterQuery);
+      console.log(`Column ${columnName} added successfully`);
+    } else {
+      console.log(`Column ${columnName} already exists`);
+    }
+    
+    // Commit transaction
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    // Rollback in case of error
+    await client.query('ROLLBACK');
+    console.error('Error modifying table:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Example: Create a new table
+async function createNewTable(tableName, columns) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // Check if table exists
+    const checkResult = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = $1
+    `, [tableName]);
+    
+    if (checkResult.rows.length === 0) {
+      // Table doesn't exist, create it
+      const columnDefinitions = columns.map(col => 
+        `${col.name} ${col.type}${col.nullable ? '' : ' NOT NULL'}${col.default ? ` DEFAULT ${col.default}` : ''}`
+      ).join(', ');
+      
+      const createQuery = `
+        CREATE TABLE ${tableName} (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          ${columnDefinitions},
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `;
+      
+      await client.query(createQuery);
+      
+      // Create updated_at trigger
+      const triggerQuery = `
+        CREATE TRIGGER set_updated_at
+        BEFORE UPDATE ON ${tableName}
+        FOR EACH ROW
+        EXECUTE FUNCTION trigger_set_timestamp();
+      `;
+      
+      // Check if trigger function exists, if not create it
+      const checkTriggerFn = await client.query(`
+        SELECT routine_name
+        FROM information_schema.routines
+        WHERE routine_name = 'trigger_set_timestamp'
+      `);
+      
+      if (checkTriggerFn.rows.length === 0) {
+        await client.query(`
+          CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+          RETURNS TRIGGER AS $$
+          BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+      }
+      
+      await client.query(triggerQuery);
+      console.log(`Table ${tableName} created successfully`);
+    } else {
+      console.log(`Table ${tableName} already exists`);
+    }
+    
+    // Commit transaction
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    // Rollback in case of error
+    await client.query('ROLLBACK');
+    console.error('Error creating table:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Example: Bulk import prescriber data
+async function bulkImportPrescribers(prescribersData) {
+  try {
+    const { data, error } = await selfHostedSupabase
+      .from('prescribers')
+      .insert(prescribersData);
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error importing prescriber data:', error);
+    throw error;
+  }
+}
+
+// Example: Run complex SQL query
+async function runComplexQuery(sqlQuery, params = []) {
+  const client = await pgPool.connect();
+  
+  try {
+    const result = await client.query(sqlQuery, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error running custom SQL query:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = {
+  getPrescriberData,
+  addColumnToPrescriberTable,
+  createNewTable,
+  bulkImportPrescribers,
+  runComplexQuery,
+  pgPool,
+  selfHostedSupabase
+};
+
+
+_________________________________________________________
+
+
+// Cloud-hosted Supabase authentication service
+const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase client for cloud instance
+const supabaseAuth = createClient(
+  process.env.CLOUD_SUPABASE_URL,
+  process.env.CLOUD_SUPABASE_ANON_KEY
+);
+
+// User signup with email/password
+async function signUpUser(email, password, metadata = {}) {
+  try {
+    const { data, error } = await supabaseAuth.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          ...metadata,
+          created_at: new Date().toISOString()
+        }
+      }
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error signing up user:', error);
+    throw error;
+  }
+}
+
+// User login with email/password
+async function signInUser(email, password) {
+  try {
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error signing in user:', error);
+    throw error;
+  }
+}
+
+// Sign in with OAuth provider
+async function signInWithProvider(provider) {
+  try {
+    const { data, error } = await supabaseAuth.auth.signInWithOAuth({
+      provider: provider // 'google', 'github', 'facebook', etc.
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Error signing in with ${provider}:`, error);
+    throw error;
+  }
+}
+
+// Password reset request
+async function requestPasswordReset(email) {
+  try {
+    const { data, error } = await supabaseAuth.auth.resetPasswordForEmail(email);
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error requesting password reset:', error);
+    throw error;
+  }
+}
+
+// Update user data
+async function updateUserMetadata(userId, metadata) {
+  try {
+    const { data, error } = await supabaseAuth.auth.admin.updateUserById(
+      userId,
+      { user_metadata: metadata }
+    );
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating user metadata:', error);
+    throw error;
+  }
+}
+
+// Get current user session
+async function getCurrentSession() {
+  try {
+    const { data, error } = await supabaseAuth.auth.getSession();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting current session:', error);
+    throw error;
+  }
+}
+
+// Refresh session
+async function refreshSession(refreshToken) {
+  try {
+    const { data, error } = await supabaseAuth.auth.refreshSession({
+      refresh_token: refreshToken
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error refreshing session:', error);
+    throw error;
+  }
+}
+
+// Sign out user
+async function signOutUser() {
+  try {
+    const { error } = await supabaseAuth.auth.signOut();
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error signing out user:', error);
+    throw error;
+  }
+}
+
+// User management - Admin operations
+async function listUsers(page = 1, perPage = 100) {
+  try {
+    // You need SUPABASE_SERVICE_ROLE_KEY for admin operations
+    const adminSupabase = createClient(
+      process.env.CLOUD_SUPABASE_URL,
+      process.env.CLOUD_SUPABASE_SERVICE_ROLE_KEY
+    );
+    
+    const { data, error } = await adminSupabase.auth.admin.listUsers({
+      page,
+      perPage
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error listing users:', error);
+    throw error;
+  }
+}
+
+// Delete user
+async function deleteUser(userId) {
+  try {
+    // You need SUPABASE_SERVICE_ROLE_KEY for admin operations
+    const adminSupabase = createClient(
+      process.env.CLOUD_SUPABASE_URL,
+      process.env.CLOUD_SUPABASE_SERVICE_ROLE_KEY
+    );
+    
+    const { error } = await adminSupabase.auth.admin.deleteUser(userId);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+}
+
+// Authentication middleware for Express
+function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  // Verify token
+  supabaseAuth.auth.getUser(token)
+    .then(({ data, error }) => {
+      if (error || !data?.user) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      
+      // Attach user to request object
+      req.user = data.user;
+      next();
+    })
+    .catch(error => {
+      console.error('Auth middleware error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+}
+
+module.exports = {
+  supabaseAuth,
+  signUpUser,
+  signInUser,
+  signInWithProvider,
+  requestPasswordReset,
+  updateUserMetadata,
+  getCurrentSession,
+  refreshSession,
+  signOutUser,
+  listUsers,
+  deleteUser,
+  requireAuth
+};
+
+
+
+___________________________________________________________________
+
+
+
+// Stripe integration for payment processing
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { pgPool } = require('./self-hosted-db'); // Import the PostgreSQL connection
+
+// Create a customer in Stripe
+async function createStripeCustomer(email, name, metadata = {}) {
+  try {
+    const customer = await stripe.customers.create({
+      email,
+      name,
+      metadata
+    });
+    
+    return customer;
+  } catch (error) {
+    console.error('Error creating Stripe customer:', error);
+    throw error;
+  }
+}
+
+// Create subscription plans/products
+async function createSubscriptionProduct(name, description, metadata = {}) {
+  try {
+    const product = await stripe.products.create({
+      name,
+      description,
+      metadata
+    });
+    
+    return product;
+  } catch (error) {
+    console.error('Error creating subscription product:', error);
+    throw error;
+  }
+}
+
+// Create price for a product
+async function createPrice(productId, unitAmount, currency = 'usd', interval = 'month') {
+  try {
+    const price = await stripe.prices.create({
+      product: productId,
+      unit_amount: unitAmount, // In cents
+      currency,
+      recurring: { interval }
+    });
+    
+    return price;
+  } catch (error) {
+    console.error('Error creating price:', error);
+    throw error;
+  }
+}
+
+// Create checkout session for subscription
+async function createSubscriptionCheckout(customerId, priceId, successUrl, cancelUrl) {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+    
+    return session;
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw error;
+  }
+}
+
+// Create a payment intent for one-time payment
+async function createPaymentIntent(amount, currency = 'usd', customerId = null, metadata = {}) {
+  try {
+    const paymentIntentParams = {
+      amount, // In cents
+      currency,
+      metadata
+    };
+    
+    if (customerId) {
+      paymentIntentParams.customer = customerId;
+    }
+    
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    
+    return paymentIntent;
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    throw error;
+  }
+}
+
+// Handle webhook events from Stripe
+async function handleStripeWebhook(rawBody, signature) {
+  try {
+    const event = stripe.webhooks.constructEvent(
+      rawBody,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+    
+    // Handle different event types
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutComplete(event.data.object);
+        break;
+      case 'invoice.paid':
+        await handleInvoicePaid(event.data.object);
+        break;
+      case 'invoice.payment_failed':
+        await handlePaymentFailed(event.data.object);
+        break;
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object);
+        break;
+      case 'customer.subscription.deleted':
+        await handleSubscriptionCancelled(event.data.object);
+        break;
+    }
+    
+    return { received: true };
+  } catch (error) {
+    console.error('Error handling Stripe webhook:', error);
+    throw error;
+  }
+}
+
+// Handle checkout completion
+async function handleCheckoutComplete(session) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // Get subscription details from Stripe
+    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    
+    // Update user subscription status in database
+    await client.query(`
+      INSERT INTO user_subscriptions (
+        user_id, 
+        stripe_customer_id, 
+        stripe_subscription_id,
+        subscription_status,
+        current_period_start,
+        current_period_end,
+        plan_id
+      )
+      VALUES ($1, $2, $3, $4, to_timestamp($5), to_timestamp($6), $7)
+      ON CONFLICT (user_id) DO UPDATE SET
+        stripe_subscription_id = $3,
+        subscription_status = $4,
+        current_period_start = to_timestamp($5),
+        current_period_end = to_timestamp($6),
+        plan_id = $7,
+        updated_at = NOW()
+    `, [
+      session.client_reference_id,
+      session.customer,
+      subscription.id,
+      subscription.status,
+      subscription.current_period_start,
+      subscription.current_period_end,
+      subscription.items.data[0].price.product
+    ]);
+    
+    // Commit transaction
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error handling checkout completion:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Handle invoice payment success
+async function handleInvoicePaid(invoice) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // Get subscription details
+    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+    
+    // Update subscription record
+    await client.query(`
+      UPDATE user_subscriptions
+      SET 
+        subscription_status = $1,
+        current_period_start = to_timestamp($2),
+        current_period_end = to_timestamp($3),
+        updated_at = NOW()
+      WHERE stripe_subscription_id = $4
+    `, [
+      subscription.status,
+      subscription.current_period_start,
+      subscription.current_period_end,
+      subscription.id
+    ]);
+    
+    // Insert payment record
+    await client.query(`
+      INSERT INTO subscription_payments (
+        subscription_id,
+        stripe_invoice_id,
+        amount_paid,
+        currency,
+        payment_status,
+        payment_date
+      )
+      VALUES (
+        (SELECT id FROM user_subscriptions WHERE stripe_subscription_id = $1),
+        $2,
+        $3,
+        $4,
+        $5,
+        to_timestamp($6)
+      )
+    `, [
+      subscription.id,
+      invoice.id,
+      invoice.amount_paid,
+      invoice.currency,
+      invoice.status,
+      invoice.created
+    ]);
+    
+    // Commit transaction
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error handling invoice payment:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Handle payment failure
+async function handlePaymentFailed(invoice) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // Update subscription status
+    await client.query(`
+      UPDATE user_subscriptions
+      SET 
+        payment_failure_count = payment_failure_count + 1,
+        last_payment_failure = NOW(),
+        updated_at = NOW()
+      WHERE stripe_subscription_id = $1
+    `, [invoice.subscription]);
+    
+    // Insert failed payment record
+    await client.query(`
+      INSERT INTO subscription_payment_failures (
+        subscription_id,
+        stripe_invoice_id,
+        amount_due,
+        currency,
+        failure_code,
+        failure_message,
+        failure_date
+      )
+      VALUES (
+        (SELECT id FROM user_subscriptions WHERE stripe_subscription_id = $1),
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        NOW()
+      )
+    `, [
+      invoice.subscription,
+      invoice.id,
+      invoice.amount_due,
+      invoice.currency,
+      invoice.last_payment_error?.code || 'unknown',
+      invoice.last_payment_error?.message || 'Payment failed'
+    ]);
+    
+    // Commit transaction
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error handling payment failure:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Handle subscription updates
+async function handleSubscriptionUpdated(subscription) {
+  const client = await pgPool.connect();
+  
+  try {
+    await client.query(`
+      UPDATE user_subscriptions
+      SET 
+        subscription_status = $1,
+        current_period_start = to_timestamp($2),
+        current_period_end = to_timestamp($3),
+        cancel_at_period_end = $4,
+        updated_at = NOW()
+      WHERE stripe_subscription_id = $5
+    `, [
+      subscription.status,
+      subscription.current_period_start,
+      subscription.current_period_end,
+      subscription.cancel_at_period_end,
+      subscription.id
+    ]);
+  } catch (error) {
+    console.error('Error handling subscription update:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Handle subscription cancellation
+async function handleSubscriptionCancelled(subscription) {
+  const client = await pgPool.connect();
+  
+  try {
+    await client.query(`
+      UPDATE user_subscriptions
+      SET 
+        subscription_status = $1,
+        cancelled_at = to_timestamp($2),
+        updated_at = NOW()
+      WHERE stripe_subscription_id = $3
+    `, [
+      subscription.status,
+      subscription.canceled_at,
+      subscription.id
+    ]);
+  } catch (error) {
+    console.error('Error handling subscription cancellation:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Create usage records for metered billing
+async function createUsageRecord(subscriptionItemId, quantity, timestamp = null) {
+  try {
+    const usageRecord = await stripe.subscriptionItems.createUsageRecord(
+      subscriptionItemId,
+      {
+        quantity,
+        timestamp: timestamp || Math.floor(Date.now() / 1000),
+        action: 'increment'
+      }
+    );
+    
+    return usageRecord;
+  } catch (error) {
+    console.error('Error creating usage record:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  createStripeCustomer,
+  createSubscriptionProduct,
+  createPrice,
+  createSubscriptionCheckout,
+  createPaymentIntent,
+  handleStripeWebhook,
+  createUsageRecord
+};
+
+
+
+_______________________________________________
+
+
+// Integration layer connecting Supabase databases and Stripe
+const { supabaseAuth } = require('./cloud-supabase-auth');
+const { selfHostedSupabase, pgPool } = require('./self-hosted-db');
+const stripeService = require('./stripe-integration');
+
+// User registration with subscription
+async function registerUserWithSubscription(userData, subscriptionPlanId) {
+  const client = await pgPool.connect();
+  
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // 1. Register user in cloud Supabase
+    const { user } = await supabaseAuth.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: {
+        data: {
+          full_name: userData.fullName,
+          role: 'customer',
+          created_at: new Date().toISOString()
+        }
+      }
+    });
+    
+    if (!user) throw new Error('Failed to create user account');
+    
+    // 2. Create Stripe customer
+    const customer = await stripeService.createStripeCustomer(
+      userData.email,
+      userData.fullName,
+      { user_id: user.id }
+    );
+    
+    // 3. Store user profile in self-hosted PostgreSQL
+    const userInsertResult = await client.query(`
+      INSERT INTO users (
+        id, 
+        email, 
+        full_name, 
+        stripe_customer_id, 
+        status
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `, [
+      user.id,
+      userData.email,
+      userData.fullName,
+      customer.id,
+      'active'
+    ]);
+    
+    // 4. Get subscription plan details
+    const planResult = await client.query(`
+      SELECT * FROM subscription_plans WHERE id = $1
+    `, [subscriptionPlanId]);
+    
+    if (planResult.rows.length === 0) throw new Error('Subscription plan not found');
+    const plan = planResult.rows[0];
+    
+    // 5. Create checkout session
+    const session = await stripeService.createSubscriptionCheckout(
+      customer.id,
+      plan.stripe_price_id,
+      `${process.env.FRONTEND_URL}/subscription/success?user_id=${user.id}`,
+      `${process.env.FRONTEND_URL}/subscription/cancel`
+    );
+    
+    // Commit transaction
+    await client.query('COMMIT');
+    
+    return {
+      user,
+      customer,
+      checkoutUrl: session.url
+    };
+  } catch (error) {
+    // Rollback in case of error
+    await client.query('ROLLBACK');
+    console.error('Error in user registration flow:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Get prescriber data with subscription validation
+async function getPrescriberDataWithSubscriptionCheck(userId, filters = {}) {
+  const client = await pgPool.connect();
+  
+  try {
+    // 1. Check if user has active subscription
+    const subscriptionResult = await client.query(`
+      SELECT * FROM user_subscriptions 
+      WHERE user_id = $1 AND subscription_status = 'active'
+    `, [userId]);
+    
+    if (subscriptionResult.rows.length === 0) {
+      throw new Error('No active subscription found');
+    }
+    
+    // 2. Get subscription plan details to check permissions
+    const planResult = await client.query(`
+      SELECT sp.* FROM subscription_plans sp
+      JOIN user_subscriptions us ON us.plan_id = sp.stripe_product_id
+      WHERE us.user_id = $1
+    `, [userId]);
+    
+    if (planResult.rows.length === 0) {
+      throw new Error('Subscription plan not found');
+    }
+    
+    const plan = planResult.rows[0];
+    
+    // 3. Apply appropriate limits based on subscription tier
+    let query = selfHostedSupabase
+      .from('prescribers')
+      .select('*');
+    
+    // Apply filters
+    if (filters.state) query = query.eq('state', filters.state);
+    if (filters.specialty) query = query.eq('specialty', filters.specialty);
+    if (filters.minPrescriptions) query = query.gte('prescription_count', filters.minPrescriptions);
+    
+    // Apply tier-based limits
+    if (plan.tier === 'basic') {
+      query = query.limit(100);
+    } else if (plan.tier === 'professional') {
+      query = query.limit(1000);
+    }
+    // No limit for enterprise tier
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    
+    // 4. Record usage for metered billing if applicable
+    if (plan.usage_based) {
+      // Get subscription item ID
+      const subscription = await client.query(`
+        SELECT stripe_subscription_id FROM user_subscriptions
+        WHERE user_id = $1
+      `, [userId]);
+      
+      if (subscription.rows.length > 0) {
+        const stripeSubscription = await stripe.subscriptions.retrieve(
+          subscription.rows[0].stripe_subscription_id
+        );
+        
+        const subscriptionItemId = stripeSubscription.items.data[0].id;
+        
+        // Record API usage
+        await stripeService.createUsageRecord(subscriptionItemId, 1);
+        
+        // Log usage in our database
+        await client.query(`
+          INSERT INTO api_usage_logs (
+            user_id,
+            endpoint,
+            query_params,
+            results_count,
+            subscription_id
+          )
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
+          userId,
+          'prescribers',
+          JSON.stringify(filters
