@@ -1,0 +1,119 @@
+Database: rx
+Server: localhost:5432 (from the backend's perspective on the same server)
+Primary User: gh0st (requires password authentication via scram-sha-256)
+Required Extension: postgis (for spatial data), uuid-ossp (for app_users table)
+1. Table: us_zipcodes
+Purpose: Stores US Zip Code information, including geographic centroids for proximity searches.
+Columns:
+zip_code (TEXT): The 5-digit zip code (used as the primary link).
+official_usps_city_name (TEXT)
+official_usps_state_code (VARCHAR(2))
+official_state_name (TEXT)
+zcta (TEXT)
+zcta_parent (TEXT)
+population (NUMERIC): Changed from INTEGER during import.
+density (NUMERIC)
+primary_official_county_code (TEXT)
+primary_official_county_name (TEXT)
+county_weights (TEXT)
+official_county_name (TEXT)
+official_county_code (TEXT)
+imprecise (BOOLEAN)
+military (BOOLEAN)
+timezone (TEXT)
+geo_point (TEXT): Original latitude, longitude string (e.g., "39.89093, -75.32837").
+geom (GEOMETRY(Point, 4326)): The PostGIS spatial point geometry, populated from geo_point. All rows now have geometry populated.
+Primary Key: None explicitly defined (could add PRIMARY KEY (zip_code)).
+Foreign Keys: None.
+Indexes:
+us_zipcodes_geom_idx (GIST on geom): Crucial for spatial queries (ST_DWithin).
+us_zipcodes_zip_code_idx (BTREE on zip_code): For joining.
+Notes: The source was the opendatasoft API. geom column is used for distance calculations.
+2. Table: npi_details
+Purpose: Stores core information about healthcare providers identified by their National Provider Identifier (NPI).
+Columns:
+npi (BIGINT): National Provider Identifier.
+provider_first_name (TEXT)
+provider_last_name_legal_name (TEXT)
+last_update_date (DATE)
+npi_deactivation_date (DATE): Important for filtering inactive providers.
+npi_deactivation_reason_code (TEXT)
+npi_deactivation_reason_code_name (TEXT)
+npi_reactivation_date (DATE)
+provider_credential_text (TEXT): e.g., "MD", "DO", "NP".
+provider_enumeration_date (DATE)
+provider_first_name_1 (TEXT): Added during import based on CSV header discrepancy. Usage unclear, might be redundant/artifact.
+healthcare_provider_taxonomy_1_classification (TEXT): Primary specialty classification (e.g., "Internal Medicine"). Used for filtering.
+healthcare_provider_taxonomy_1_definition (TEXT)
+healthcare_provider_taxonomy_1_grouping (TEXT)
+healthcare_provider_taxonomy_1_notes (TEXT)
+healthcare_provider_taxonomy_1_specialization (TEXT): Sub-specialty (e.g., "Cardiovascular Disease").
+Primary Key: npi.
+Foreign Keys: None outgoing. Is referenced by npi_addresses and npi_prescriptions.
+Indexes: Primary key index exists automatically.
+Notes: Data imported from prescriber-name-enumeration-related-data CSV. This table acts as the central provider identity source.
+3. Table: npi_addresses
+Purpose: Stores mailing and practice location addresses and phone numbers for providers.
+Columns:
+npi (BIGINT)
+provider_first_line_business_mailing_address (TEXT)
+provider_second_line_business_mailing_address (TEXT)
+provider_business_mailing_address_city_name (TEXT)
+provider_business_mailing_address_postal_code (TEXT): Can be 5 or 9 digits.
+provider_business_mailing_address_state_name (TEXT): Widened from VARCHAR(2).
+provider_business_mailing_address_telephone_number (TEXT)
+provider_first_line_business_practice_location_address (TEXT): Used for display.
+provider_second_line_business_practice_location_address (TEXT): Used for display.
+provider_business_practice_location_address_postal_code (TEXT): Can be 5 or 9 digits. Used for joining to us_zipcodes (via left(..., 5)).
+provider_business_practice_location_address_city_name (TEXT): Used for display.
+provider_business_practice_location_address_state_name (TEXT): Widened from VARCHAR(2). Used for display.
+provider_business_practice_location_address_telephone_number (TEXT): Used for display.
+authorized_official_last_name (TEXT)
+authorized_official_telephone_number (TEXT)
+(Optional columns if USPS/Smarty cleaning is implemented later: cleaned_*, latitude, longitude, dpv_match_code, last_cleaned_date)
+Primary Key: npi (assuming one address record per NPI in the source file).
+Foreign Keys: npi originally referenced npi_details(npi). This constraint was DROPPED during import due to NPIs existing in the address file but not the details file.
+Indexes: Primary key index, npi_addresses_practice_zip_idx (BTREE on provider_business_practice_location_address_postal_code).
+Notes: Source was prescriber-address-phone-data CSV. Contains orphaned NPI records. Address data quality varies; may contain abbreviations (e.g., "PHILA") or ZIP+4.
+4. Table: npi_prescriptions
+Purpose: Stores aggregated prescription claim counts for specific drugs by provider, within the context of a specific state's dataset.
+Columns:
+prescription_id (SERIAL): Auto-incrementing primary key.
+npi (BIGINT)
+drug_name (TEXT): Often the brand name or specific formulation.
+generic_name (TEXT): The generic drug name (e.g., "ALPRAZOLAM"). Used for searching.
+total_claim_count (INTEGER): Number of claims for this NPI/Drug/State combination.
+state (VARCHAR(2)): The 2-letter state abbreviation corresponding to the source data file (e.g., 'PA', 'AK'). Added during import.
+Primary Key: prescription_id.
+Foreign Keys: npi originally referenced npi_details(npi). This constraint was DROPPED during import due to NPIs existing in the prescription files but not the details file.
+Indexes: Primary key index, npi_prescriptions_npi_idx, npi_prescriptions_generic_name_idx (BTREE on lower(generic_name)), npi_prescriptions_state_idx.
+Notes: Data aggregated from multiple state-specific CSV files (e.g., ALSHORT.csv). Contains orphaned NPI records.
+5. Table: app_users
+Purpose: Stores application-specific data for users authenticated via Supabase, linking them by their Supabase User ID. Resides in the rx database.
+Columns:
+supabase_user_id (UUID): The user's unique ID from Supabase Auth (auth.users.id).
+email (TEXT): Optional, potentially synced from Supabase.
+membership_tier (VARCHAR(10)): 'basic', 'premium', or 'expert'. Used to determine search capabilities.
+created_at (TIMESTAMPTZ)
+updated_at (TIMESTAMPTZ): Automatically updated by a trigger.
+Primary Key: supabase_user_id.
+Foreign Keys: None outgoing. Referenced by user_locations.
+Indexes: Primary key index.
+Notes: Requires the uuid-ossp extension. This table needs to be populated (likely via backend logic/webhook) when a user signs up through Supabase.
+6. Table: user_locations
+Purpose: Stores named locations (with zip codes) saved by users, primarily for Premium/Basic tier searches. Resides in the rx database.
+Columns:
+user_location_id (SERIAL): Auto-incrementing primary key.
+supabase_user_id (UUID): Links to the app_users table.
+location_name (TEXT): User-defined name (e.g., "Home", "Work").
+zip_code (VARCHAR(10)): The zip code for this location.
+is_primary (BOOLEAN): Indicates the default location for Basic users.
+created_at (TIMESTAMPTZ)
+Primary Key: user_location_id.
+Foreign Keys: supabase_user_id REFERENCES app_users(supabase_user_id) ON DELETE CASCADE.
+Indexes: Primary key index, idx_user_locations_supabase_user_id.
+Notes: Backend queries this table based on supabase_user_id to find the appropriate zip_code for Basic/Premium searches. Needs API endpoints for users to manage these.
+7. Table: npi_addresses_usps (Created, but currently unused)
+Purpose: Intended to store results from calling the USPS Address Standardization API.
+Columns: npi (BIGINT PK), usps_firm, usps_street_address, usps_secondary_address, usps_city, usps_state_abbr, usps_zip5, usps_zip4, usps_urbanization, usps_return_text, usps_error_number, usps_processed_at.
+Notes: This table exists but contains no data, as the USPS API integration script was skipped. It could be populated later if address cleaning via USPS is pursued.
