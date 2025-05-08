@@ -3,7 +3,18 @@
   "version": "1.0.0",
   "description": "prescribrs search",
   "main": "index.js",
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.1",
+    "@types/helmet": "^0.0.48",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.15.16",
+    "@types/pg": "^8.15.0",
+    "@types/uuid": "^10.0.0"
+  },
   "scripts": {
     "test": "npm test"
   },
@@ -20,5 +31,10 @@
   "bugs": {
     "url": "https://github.com/rapecilantro/med-connect-ux-plus/issues"
   },
-  "homepage": "https://github.com/rapecilantro/med-connect-ux-plus#readme"
+  "homepage": "https://github.com/rapecilantro/med-connect-ux-plus#readme",
+  "dependencies": {
+    "postgresql": "^0.0.1",
+    "psql": "^0.0.1",
+    "supabase": "^2.22.12"
+  }
 }

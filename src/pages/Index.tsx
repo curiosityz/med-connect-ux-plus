@@ -6,14 +6,18 @@ import Features from "@/components/Features";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { medications, providers } from "@/data/mockData";
-import MedicationCard from "@/components/MedicationCard";
-import ProviderCard from "@/components/ProviderCard";
+// import { medications, providers } from "@/data/mockData"; // Removed mock data import
+import MedicationCard from "@/components/MedicationCard"; // Keep if used elsewhere or for future API data
+import { ProviderCard } from "@/components/ProviderCard"; // Keep if used elsewhere or for future API data
+// TODO: Import necessary hooks (e.g., useQuery) and apiClient to fetch featured data
 
 const Index = () => {
-  // Show just a few medications and providers for the homepage
-  const featuredMedications = medications.slice(0, 3);
-  const featuredProviders = providers.slice(0, 3);
+  // TODO: Fetch featured medications and providers from API
+  // const { data: featuredMedications } = useQuery(...)
+  // const { data: featuredProviders } = useQuery(...)
+  const featuredMedications: any[] = []; // Placeholder
+  const featuredProviders: any[] = []; // Placeholder
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -23,45 +27,19 @@ const Index = () => {
         <Hero />
         <Features />
         
-        {/* Featured Medications Section */}
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-between items-end mb-8">
-              <div>
-                <h2 className="text-3xl font-bold mb-2 text-medblue-800">Popular Medications</h2>
-                <p className="text-gray-600">Find prescribers specializing in these medications</p>
-              </div>
-              <Button asChild variant="outline" className="border-medblue-600 text-medblue-700">
-                <Link to="/medications">View All</Link>
-              </Button>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredMedications.map((medication) => (
-                <MedicationCard key={medication.id} {...medication} />
-              ))}
-            </div>
-          </div>
-        </section>
-        
-        {/* Featured Providers Section */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-between items-end mb-8">
-              <div>
-                <h2 className="text-3xl font-bold mb-2 text-medblue-800">Top Medication Specialists</h2>
-                <p className="text-gray-600">Highly rated providers specializing in specific medications</p>
-              </div>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredProviders.map((provider) => (
-                <ProviderCard key={provider.id} {...provider} />
-              ))}
-            </div>
-          </div>
-        </section>
-        
+        {/* TODO: Re-implement Featured Sections with API data and loading/error states */}
+        {/* Placeholder Content */}
+         <section className="py-16 bg-gray-50">
+           <div className="container mx-auto px-4 text-center">
+             <h2 className="text-2xl font-semibold mb-4">Find Providers by Medication</h2>
+             <p className="text-muted-foreground mb-6">Search our extensive database for healthcare providers specializing in specific medications.</p>
+             <Button asChild size="lg">
+                <Link to="/find-providers">Start Your Search</Link>
+             </Button>
+           </div>
+         </section>
+
+
         {/* CTA Section */}
         <section className="py-16 bg-medblue-700 text-white">
           <div className="container mx-auto px-4 text-center">

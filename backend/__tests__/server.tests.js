@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { app, pool } = require('../server');
+const { app, pool } = require('../server').default;
 
 // Since our services are directly in the server.js file, we'll need to mock differently
 // We'll use jest.spyOn to intercept calls to the service methods

@@ -1,111 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/hooks/useAuth';
 import { Trash2, Star } from 'lucide-react';
+import { UserLocation } from '@/lib/api-client'; // Import UserLocation type
 
-interface UserLocation {
-  user_location_id: number;
-  supabase_user_id: string;
-  location_name: string;
-  zip_code: string;
-  is_primary: boolean;
-  created_at: string;
+interface LocationListProps {
+  locations: UserLocation[];
+  onDelete: (locationId: string) => void; // Use string ID from UserLocation
+  onSetPrimary: (locationId: string) => void; // Use string ID from UserLocation
+  isLoading?: boolean; // Optional loading state from parent
+  isPrimaryFeatureEnabled?: boolean; // Control if Set Primary button is shown/enabled
 }
 
-const MOCK_LOCATIONS: UserLocation[] = [
-  { user_location_id: 1, supabase_user_id: 'mock-user-id', location_name: 'Home', zip_code: '90210', is_primary: true, created_at: new Date().toISOString() },
-  { user_location_id: 2, supabase_user_id: 'mock-user-id', location_name: 'Work', zip_code: '10001', is_primary: false, created_at: new Date().toISOString() },
-  { user_location_id: 3, supabase_user_id: 'mock-user-id', location_name: 'Parents', zip_code: '60606', is_primary: false, created_at: new Date().toISOString() },
-];
+export const LocationList: React.FC<LocationListProps> = ({
+  locations,
+  onDelete,
+  onSetPrimary,
+  isLoading = false, // Default to false if not provided
+  isPrimaryFeatureEnabled = true, // Default to true
+}) => {
 
-export const LocationList: React.FC = () => { // Ensure NAMED export
-  const { user } = useAuth();
-  const [locations, setLocations] = useState<UserLocation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchLocations = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        console.log('Fetching locations for user:', user.id);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setLocations(MOCK_LOCATIONS);
-      } catch (apiError: any) {
-        console.error('Error fetching locations:', apiError);
-        setError(apiError?.message || 'Failed to fetch locations.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchLocations();
-  }, [user]);
-
-  const handleSetPrimary = async (locationId: number) => {
-    alert(`Simulating setting location ${locationId} as primary.`);
-    // TODO: API call
+  const handleSetPrimary = (locationId: string) => {
+    // Optional: Add confirmation if needed
+    onSetPrimary(locationId);
   };
 
-  const handleDelete = async (locationId: number) => {
-     if (confirm(`Are you sure you want to delete location ${locationId}? (Simulation)`)) {
-        alert(`Simulating deleting location ${locationId}.`);
-        // TODO: API call
+  const handleDelete = (locationId: string, locationName: string) => {
+     if (confirm(`Are you sure you want to delete "${locationName}"?`)) {
+        onDelete(locationId);
      }
   };
 
-  if (isLoading) {
+  // Show skeleton only if explicitly loading (usually during mutations) and no locations are passed yet
+  // The main loading state is handled by the parent page component
+  if (isLoading && locations.length === 0) {
     return (
       <div className="space-y-3">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
       </div>
     );
   }
 
-  if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+  // Note: Error handling is now managed by the parent component using the query
+  // The "no locations" message is also handled by the parent for better context
+
+  if (!isLoading && locations.length === 0) {
+      // Render nothing if not loading and no locations (parent shows message)
+      return null;
   }
 
-  if (locations.length === 0) {
-    return <p className="text-muted-foreground">You haven't saved any locations yet.</p>;
-  }
 
   return (
     <div className="space-y-3">
       {locations.map(location => (
-        <div key={location.user_location_id} className="flex items-center justify-between p-3 border rounded-md bg-background">
+        <div key={location.id} className="flex items-center justify-between p-3 border rounded-md bg-background">
           <div>
-            <p className="font-medium">{location.location_name}</p>
-            <p className="text-sm text-muted-foreground">{location.zip_code}</p>
+            <p className="font-medium">{location.name}</p>
+            <p className="text-sm text-muted-foreground">{location.zipCode}</p>
           </div>
           <div className="flex items-center space-x-2">
-            {location.is_primary ? (
-              <span className="text-xs font-semibold text-green-600 flex items-center">
-                <Star className="h-4 w-4 mr-1 fill-green-600" /> Primary
+            {location.isPrimary ? (
+              <span className="text-xs font-semibold text-green-600 flex items-center px-2 py-1 rounded bg-green-100/80">
+                <Star className="h-3 w-3 mr-1 fill-green-600" /> Primary
               </span>
             ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSetPrimary(location.user_location_id)}
-                title="Set as Primary"
-              >
-                <Star className="h-4 w-4" />
-              </Button>
+              isPrimaryFeatureEnabled && ( // Only show button if feature enabled
+                <Button
+                  variant="ghost"
+                  size="icon" // Make button smaller
+                  onClick={() => handleSetPrimary(location.id)}
+                  title="Set as Primary"
+                  disabled={isLoading} // Disable during mutation
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground" // Adjust size and styling
+                >
+                  <Star className="h-4 w-4" />
+                </Button>
+              )
             )}
             <Button
               variant="ghost"
-              size="sm"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => handleDelete(location.user_location_id)}
+              size="icon" // Make button smaller
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8" // Adjust size
+              onClick={() => handleDelete(location.id, location.name)}
               title="Delete Location"
+              disabled={isLoading} // Disable during mutation
             >
               <Trash2 className="h-4 w-4" />
             </Button>

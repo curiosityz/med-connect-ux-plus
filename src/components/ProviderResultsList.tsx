@@ -10,7 +10,9 @@ interface ProviderResultsListProps {
   isLoading: boolean;
   isError: boolean;
   error: ApiError | null;
-  // Removed pagination props: fetchNextPage, hasNextPage, isFetchingNextPage
+  fetchNextPage: () => void; // Added back
+  hasNextPage: boolean | undefined; // Added back (can be undefined if not supported/known)
+  isFetchingNextPage: boolean; // Added back
   searchAttempted: boolean;
 }
 
@@ -19,7 +21,9 @@ export const ProviderResultsList: React.FC<ProviderResultsListProps> = ({
   isLoading,
   isError,
   error,
-  // Removed pagination props
+  fetchNextPage, // Added back
+  hasNextPage,   // Added back
+  isFetchingNextPage, // Added back
   searchAttempted
 }) => {
 
@@ -71,7 +75,17 @@ export const ProviderResultsList: React.FC<ProviderResultsListProps> = ({
         </div>
       )}
 
-      {/* Removed pagination button */}
+      {hasNextPage && (
+        <div className="mt-6 text-center">
+          <Button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage || isLoading}
+            variant="outline"
+          >
+            {isFetchingNextPage ? 'Loading more...' : 'Load More Results'}
+          </Button>
+        </div>
+      )}
       
     </div>
   );

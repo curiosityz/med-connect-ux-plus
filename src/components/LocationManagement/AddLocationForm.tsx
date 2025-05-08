@@ -2,54 +2,52 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/useAuth'; // To potentially get user ID for API call
+import { Loader2 } from 'lucide-react'; // Import Loader2
 
-export const AddLocationForm: React.FC = () => {
-  const { user } = useAuth();
+// Define the shape of the data expected by the onSubmit prop
+interface LocationFormData {
+  name: string;
+  zipCode: string;
+}
+
+interface AddLocationFormProps {
+  onSubmit: (data: LocationFormData) => void; // Callback for submitting data
+  isLoading?: boolean; // Loading state controlled by parent mutation
+}
+
+export const AddLocationForm: React.FC<AddLocationFormProps> = ({
+  onSubmit,
+  isLoading = false,
+}) => {
   const [locationName, setLocationName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // Placeholder for API call loading state
-  const [error, setError] = useState<string | null>(null); // Placeholder for API error
+  const [formError, setFormError] = useState<string | null>(null); // Local form validation error
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!locationName || !zipCode || !user) {
-      setError('Please fill in all fields and ensure you are logged in.');
+    setFormError(null); // Clear previous errors
+
+    // Basic validation
+    if (!locationName.trim() || !zipCode.trim()) {
+      setFormError('Please fill in both location name and zip code.');
       return;
     }
-    // Basic zip code validation (can be improved)
-    if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
-      setError('Please enter a valid 5-digit zip code.');
+    if (!/^\d{5}(-\d{4})?$/.test(zipCode.trim())) {
+      setFormError('Please enter a valid 5-digit zip code.');
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    // Call the onSubmit prop passed from the parent (which triggers the mutation)
+    onSubmit({ name: locationName.trim(), zipCode: zipCode.trim() });
 
-    try {
-      // Placeholder for API call to save the location
-      console.log('Submitting new location:', { userId: user.id, locationName, zipCode });
-      // await apiClient.saveUserLocation({ userId: user.id, locationName, zipCode }); // Example API call
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-
-      // Clear form on success
-      setLocationName('');
-      setZipCode('');
-      alert('Location saved successfully! (Simulation)'); // Replace with toast notification
-      // TODO: Trigger refetch of location list if using React Query
-
-    } catch (apiError: any) {
-      console.error('Error saving location:', apiError);
-      setError(apiError?.message || 'Failed to save location.');
-    } finally {
-      setIsLoading(false);
-    }
+    // Clear form fields immediately after submission attempt
+    // Parent component's mutation handles success/error feedback & state
+    setLocationName('');
+    setZipCode('');
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 border p-4 rounded-md bg-muted/50">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Label htmlFor="locationName">Location Name</Label>
         <Input
@@ -60,6 +58,7 @@ export const AddLocationForm: React.FC = () => {
           placeholder="e.g., Home, Work"
           required
           disabled={isLoading}
+          className="mt-1"
         />
       </div>
       <div>
@@ -74,10 +73,12 @@ export const AddLocationForm: React.FC = () => {
           pattern="\d{5}(-\d{4})?" // Basic pattern validation
           title="Enter a 5-digit zip code"
           disabled={isLoading}
+          className="mt-1"
         />
       </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      <Button type="submit" disabled={isLoading}>
+      {formError && <p className="text-red-500 text-sm">{formError}</p>}
+      <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {isLoading ? 'Saving...' : 'Save Location'}
       </Button>
     </form>

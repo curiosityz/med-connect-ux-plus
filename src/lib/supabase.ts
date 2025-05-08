@@ -31,6 +31,8 @@ export type Provider = {
   availability: string;
   image_url?: string;
   bio?: string;
+  latitude?: number | null; // Added for map
+  longitude?: number | null; // Added for map
   created_at?: string;
   npi_provider_detail?: NpiProviderDetail; // Reference to NpiProviderDetail
 }
