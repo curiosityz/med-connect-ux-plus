@@ -1,8 +1,8 @@
-import { supabase, Provider } from './supabase';
+import { supabase, Provider } from './supabase'; // Keep supabase import if needed elsewhere, but not for getSession here
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_INITIAL_BACKOFF_MS = 1000;
-const DEFAULT_REQUEST_TIMEOUT_MS = 15000; // 15 seconds timeout per request attempt
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
 export class ApiError extends Error {
   status: number;
@@ -21,9 +21,10 @@ interface ApiClientOptions {
   baseUrl?: string;
   maxRetries?: number;
   initialBackoffMs?: number;
-  timeoutMs?: number; // Allow overriding timeout
+  timeoutMs?: number;
 }
 
+// ... (Keep interface definitions: SearchApiParams, PaginatedProvidersApiResponse, UserLocation) ...
 export interface SearchApiParams {
   drugName: string;
   radiusMiles?: number;
@@ -45,7 +46,7 @@ export interface PaginatedProvidersApiResponse {
 }
 
 export interface UserLocation {
-  id: string; // Changed to string to match backend response alias
+  id: string;
   name: string;
   zipCode: string;
   isPrimary?: boolean;
@@ -59,51 +60,43 @@ class ApiClient {
   private timeoutMs: number;
 
   constructor(options?: ApiClientOptions) {
-    this.baseUrl = options?.baseUrl || '/api';
+    this.baseUrl = options?.baseUrl || import.meta.env.VITE_API_BASE_URL || '/api';
+    if (this.baseUrl === '/api') {
+        console.warn("VITE_API_BASE_URL not set, using relative path '/api'. This might not work correctly.");
+    }
     this.maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.initialBackoffMs = options?.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS;
     this.timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   }
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
-    // Shorten timeout for getting session to avoid blocking request
-    const sessionPromise = supabase.auth.getSession();
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Get session timed out")), 2000)); // 2s timeout for session
+  // REMOVED getAuthHeaders method
 
-    let session = null;
-    try {
-        const { data } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: any } };
-        session = data.session;
-    } catch (e) {
-        console.warn("Failed or timed out getting Supabase session for auth header:", e);
-    }
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    // Add optional token argument
+    options?: { data?: unknown; token?: string | null; attempt?: number }
+  ): Promise<T> {
+    const { data, token, attempt = 1 } = options || {};
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
+    // Add Authorization header ONLY if token is provided
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn(`ApiClient: Making unauthenticated request to ${method} ${endpoint}`);
     }
-    return headers;
-  }
 
-  private async request<T>(
-    method: string,
-    endpoint: string,
-    data?: unknown,
-    attempt: number = 1
-  ): Promise<T> {
-    const headers = await this.getAuthHeaders(); // Fetch headers first
-
-    // AbortController for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
     const config: RequestInit = {
       method,
       headers,
-      signal: controller.signal, // Assign AbortController's signal
+      signal: controller.signal,
     };
 
     if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -113,13 +106,13 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint}`;
 
     try {
+      console.log(`API Request: ${method} ${url} (Token: ${token ? 'Yes' : 'No'})`);
       const response = await fetch(url, config);
-      clearTimeout(timeoutId); // Clear timeout if fetch resolves/rejects
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         let errorData: any = { message: `HTTP error ${response.status}` };
         try {
-          // Try to parse JSON, but handle non-JSON responses gracefully
           const text = await response.text();
           try {
               errorData = JSON.parse(text);
@@ -134,15 +127,17 @@ class ApiClient {
         }
 
         const errorMessage = errorData?.message || errorData?.error?.message || `API request failed with status ${response.status}`;
-        console.error(`API Error ${response.status} on attempt ${attempt}: ${errorMessage}`, errorData);
+        console.error(`API Error ${response.status} on attempt ${attempt} for ${url}: ${errorMessage}`, errorData);
 
-        const shouldRetry = (response.status >= 500 || response.status === 0) && attempt < this.maxRetries;
+        // Don't retry auth errors (401, 403)
+        const shouldRetry = (response.status >= 500 || response.status === 0 || response.status === 408) && attempt < this.maxRetries;
 
         if (shouldRetry) {
           const backoffTime = this.initialBackoffMs * Math.pow(2, attempt - 1);
           console.log(`Retrying request to ${url} in ${backoffTime}ms (attempt ${attempt + 1}/${this.maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, backoffTime));
-          return this.request<T>(method, endpoint, data, attempt + 1); // Recursive call for retry
+          // Pass original options (including token and data) for retry
+          return this.request<T>(method, endpoint, { ...options, attempt: attempt + 1 });
         }
 
         throw new ApiError(errorMessage, response.status, errorData);
@@ -161,95 +156,96 @@ class ApiClient {
       return await response.text() as unknown as T;
 
     } catch (error) {
-      clearTimeout(timeoutId); // Clear timeout if fetch throws an error (e.g., network error, abort)
+      clearTimeout(timeoutId);
 
       if (error instanceof ApiError) {
-        throw error; // Re-throw ApiError directly
+        throw error;
       }
 
       let errorMessage = 'An unknown network error occurred during the API request.';
-      let errorStatus = 0; // Use 0 for network/unknown errors
+      let errorStatus = 0;
 
       if (error instanceof Error) {
           errorMessage = error.message;
           if (error.name === 'AbortError') {
               errorMessage = `Request timed out after ${this.timeoutMs}ms`;
-              errorStatus = 408; // Request Timeout status
+              errorStatus = 408;
               console.warn(`Request to ${url} aborted due to timeout.`);
           }
       }
 
       console.error(`Network/fetch error for ${url} on attempt ${attempt}:`, errorMessage, error);
 
-      // Retry only for specific network errors or timeouts if desired, and within retry limits
       const shouldRetryNetworkError = (error instanceof Error && error.name === 'AbortError' || !(error instanceof ApiError)) && attempt < this.maxRetries;
 
       if (shouldRetryNetworkError) {
         const backoffTime = this.initialBackoffMs * Math.pow(2, attempt - 1);
         console.log(`Retrying request to ${url} due to network/timeout error in ${backoffTime}ms (attempt ${attempt + 1}/${this.maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, backoffTime));
-        return this.request<T>(method, endpoint, data, attempt + 1);
+        return this.request<T>(method, endpoint, { ...options, attempt: attempt + 1 });
       }
 
-      // If not retrying, throw a consistent ApiError
       throw new ApiError(errorMessage, errorStatus, error);
     }
   }
 
-  public get<T>(endpoint: string): Promise<T> {
-    return this.request<T>('GET', endpoint);
+  // --- Update methods to accept optional token ---
+
+  public get<T>(endpoint: string, token?: string | null): Promise<T> {
+    return this.request<T>('GET', endpoint, { token });
   }
 
-  public post<T>(endpoint: string, data: unknown): Promise<T> {
-    return this.request<T>('POST', endpoint, data);
+  public post<T>(endpoint: string, data: unknown, token?: string | null): Promise<T> {
+    return this.request<T>('POST', endpoint, { data, token });
   }
 
-  public put<T>(endpoint: string, data: unknown): Promise<T> {
-    return this.request<T>('PUT', endpoint, data);
+  public put<T>(endpoint: string, data: unknown, token?: string | null): Promise<T> {
+    return this.request<T>('PUT', endpoint, { data, token });
   }
 
-  public delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>('DELETE', endpoint);
+  public delete<T>(endpoint: string, token?: string | null): Promise<T> {
+    return this.request<T>('DELETE', endpoint, { token });
   }
 
-  // --- Auth & User ---
-  public async syncUser(userData: { supabase_user_id: string; email?: string }): Promise<{ success: boolean; message?: string; data?: any }> {
-    return this.post<{ success: boolean; message?: string; data?: any }>('/sync-user', userData);
+  // --- Update specific API calls to accept token ---
+
+  public async syncUser(userData: { supabase_user_id: string; email?: string }, token: string | null): Promise<{ success: boolean; message?: string; data?: any }> {
+    return this.post<{ success: boolean; message?: string; data?: any }>('/sync-user', userData, token);
   }
 
-  public async fetchUserMembership(userId: string): Promise<{ membershipTier: 'basic' | 'premium' | 'expert' | null; data?: any }> {
-    return this.post<{ membershipTier: 'basic' | 'premium' | 'expert' | null; data?: any }>('/user-membership', { userId });
+  public async fetchUserMembership(userId: string, token: string | null): Promise<{ membershipTier: 'basic' | 'premium' | 'expert' | null; data?: any }> {
+    // Ensure userId is passed correctly in the body
+    return this.post<{ membershipTier: 'basic' | 'premium' | 'expert' | null; data?: any }>('/user-membership', { userId }, token);
   }
 
-  // --- Provider Search & Details ---
-  public async findProviders(params: SearchApiParams): Promise<PaginatedProvidersApiResponse> {
-    return this.post<PaginatedProvidersApiResponse>('/find-providers', params);
+  public async findProviders(params: SearchApiParams, token: string | null): Promise<PaginatedProvidersApiResponse> {
+    return this.post<PaginatedProvidersApiResponse>('/find-providers', params, token);
   }
 
-  public async getDrugSuggestions(query: string): Promise<string[]> {
+  public async getDrugSuggestions(query: string, token?: string | null): Promise<string[]> {
     if (!query) return [];
-    return this.get<string[]>(`/drug-suggestions?q=${encodeURIComponent(query)}`);
+    // Ensure this endpoint exists and works on the backend
+    return this.get<string[]>(`/drug-suggestions?q=${encodeURIComponent(query)}`, token);
   }
 
-  public async getProviderDetails(providerId: string): Promise<Provider> {
-    return this.get<Provider>(`/providers/${providerId}`);
+  public async getProviderDetails(providerId: string, token: string | null): Promise<Provider> {
+    return this.get<Provider>(`/providers/${providerId}`, token);
   }
 
-  // --- User Location Management ---
-  public async getUserLocations(): Promise<UserLocation[]> {
-    return this.get<UserLocation[]>('/user/locations');
+  public async getUserLocations(token: string | null): Promise<UserLocation[]> {
+    return this.get<UserLocation[]>('/user/locations', token);
   }
 
-  public async addUserLocation(locationData: Omit<UserLocation, 'id' | 'isPrimary'>): Promise<UserLocation> {
-    return this.post<UserLocation>('/user/locations', locationData);
+  public async addUserLocation(locationData: Omit<UserLocation, 'id' | 'isPrimary'>, token: string | null): Promise<UserLocation> {
+    return this.post<UserLocation>('/user/locations', locationData, token);
   }
 
-  public async deleteUserLocation(locationId: string): Promise<{ success: boolean }> {
-    return this.delete<{ success: boolean }>(`/user/locations/${locationId}`);
+  public async deleteUserLocation(locationId: string, token: string | null): Promise<{ success: boolean }> {
+    return this.delete<{ success: boolean }>(`/user/locations/${locationId}`, token);
   }
 
-  public async setPrimaryLocation(locationId: string): Promise<{ success: boolean }> {
-      return this.put<{ success: boolean }>(`/user/locations/${locationId}/set-primary`, {});
+  public async setPrimaryLocation(locationId: string, token: string | null): Promise<{ success: boolean }> {
+      return this.put<{ success: boolean }>(`/user/locations/${locationId}/set-primary`, {}, token);
   }
 }
 

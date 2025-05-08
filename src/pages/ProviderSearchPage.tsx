@@ -7,7 +7,6 @@ import ProviderMap from '@/components/Map/ProviderMap';
 import { useAuth } from '@/hooks/useAuth';
 import { useSearch } from '@/contexts/SearchContext';
 import { SearchFilters } from '@/reducers/searchReducer';
-// import { useDebounce } from '@/hooks/useDebounce'; // No longer needed here
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
@@ -15,7 +14,7 @@ const ProviderSearchPage = () => {
   const { membershipTier, loading: authLoading } = useAuth();
   const {
     searchState,
-    updateFilters, // Still needed for individual filter updates via handlers
+    updateFilters,
     performSearch, // Get performSearch from context
     loadMoreResults,
   } = useSearch();
@@ -29,32 +28,26 @@ const ProviderSearchPage = () => {
   } = searchState;
 
   // Local state ONLY for the location input field
-  const [localLocationInput, setLocalLocationInput] = useState(filters.locationName || filters.zipCode || '');
+  const [localLocationInput, setLocalLocationInput] = useState('');
   const [searchAttempted, setSearchAttempted] = useState(false);
 
   // Memoized primary location zip
   const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]); // Example
 
-  // Effect to set initial zip code for basic tier if not already set
-  // And sync local input if context changes (e.g., clear search)
+  // Effect to SYNC local input state FROM context/auth state when relevant parts change
   useEffect(() => {
-      if (membershipTier === 'basic' && primaryLocationZip) {
-          if (!filters.zipCode || filters.zipCode !== primaryLocationZip) {
-             // Update context only if needed, avoid loops
-             updateFilters({ zipCode: primaryLocationZip, locationName: undefined });
-          }
-          // Sync local input if context has primary zip
-          if (localLocationInput !== primaryLocationZip) {
-             setLocalLocationInput(primaryLocationZip);
-          }
-      } else {
-          // Sync local input if context filter changes (e.g., after clearSearch)
-          const contextLocation = filters.locationName || filters.zipCode || '';
-          if (localLocationInput !== contextLocation) {
-              setLocalLocationInput(contextLocation);
-          }
-      }
-  }, [membershipTier, primaryLocationZip, filters.zipCode, filters.locationName, updateFilters]); // Removed localLocationInput from deps
+    let locationToShow = '';
+    if (membershipTier === 'basic' && primaryLocationZip) {
+      locationToShow = primaryLocationZip;
+    } else {
+      // Show zip if available, otherwise location name
+      locationToShow = filters.locationName || filters.zipCode || '';
+    }
+    // Only update local state if it's different from what should be shown
+    if (localLocationInput !== locationToShow) {
+      setLocalLocationInput(locationToShow);
+    }
+  }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip]);
 
 
   // Effect to track if user has started interacting (optional, for UI feedback)
@@ -136,21 +129,18 @@ const ProviderSearchPage = () => {
       };
 
       // Perform the search if criteria are met
+      // The context state (including filters) will be updated by performSearch upon successful completion.
       if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
-         // Pass the calculated filters directly to performSearch
          performSearch(filtersForSearch, false); // false = not load more
       } else {
          console.log("Search criteria not met for API call.");
          // Optionally show a message if criteria aren't met on click
-         // e.g., using UIContext's addNotification
       }
   };
 
   // Determine if the search criteria are met (for enabling search button)
   const isSearchCriteriaMet = useMemo(() => {
-    // Check drug name from context filter state
     if (authLoading || !filters.drugName || filters.drugName.length < 2) return false;
-    // Check location based on tier and *local* input state
     if (membershipTier === 'basic') return !!primaryLocationZip;
     return !!localLocationInput.trim();
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);

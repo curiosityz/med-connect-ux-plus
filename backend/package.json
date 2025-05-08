@@ -2,7 +2,6 @@
   "name": "src",
   "version": "1.0.0",
   "description": "prescribrs search",
-  "main": "index.js",
   "devDependencies": {
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.8",

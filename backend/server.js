@@ -1,18 +1,18 @@
 require('dotenv').config(); // Load environment variables first
-import express, { json, urlencoded } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import compression from 'compression';
-import { createClient } from '@supabase/supabase-js';
-import { Pool } from 'pg';
-import rateLimit from 'express-rate-limit';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
+const rateLimit = require('express-rate-limit');
 // @ts-ignore - No types available for express-validation
-import { validate, Joi, ValidationError } from 'express-validation';
-import { v4 as uuidv4 } from 'uuid';
-import morgan from 'morgan';
+const { validate, Joi, ValidationError } = require('express-validation');
+const { v4: uuidv4 } = require('uuid');
+const morgan = require('morgan');
 // @ts-ignore - Ignore if @types/winston not found/working
-import { createLogger, format as _format, transports as _transports } from 'winston';
-import cookieParser from 'cookie-parser';
+const winston = require('winston'); // Use require for winston
+const cookieParser = require('cookie-parser');
 
 // --- Type Imports for JSDoc ---
 /**
@@ -41,24 +41,25 @@ import cookieParser from 'cookie-parser';
 
 // --- Logging Configuration ---
 // @ts-ignore - Ignore if @types/winston not found/working
-const logger = createLogger({
+const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
-  format: _format.combine(
+  format: winston.format.combine(
     // @ts-ignore
-    _format.timestamp(),
+    winston.format.timestamp(),
     // @ts-ignore
-    _format.json()
+    winston.format.json()
   ),
   defaultMeta: { service: 'rx-provider-service' },
   transports: [
     // @ts-ignore
-    new _transports.Console({ format: _format.simple() }),
+    new winston.transports.Console({ format: winston.format.simple() }),
     // @ts-ignore
-    new _transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
     // @ts-ignore
-    new _transports.File({ filename: 'combined.log' })
+    new winston.transports.File({ filename: 'combined.log' })
   ],
 });
+logger.info('Logger configured.'); // Log early
 
 // --- Environment Validation ---
 const requiredEnvVars = [
@@ -70,12 +71,14 @@ if (missingEnvVars.length > 0) {
   logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
   process.exit(1);
 }
+logger.info('Environment variables validated.');
 
 // --- Initialize Express Application ---
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4242; // Ensure this matches proxy_pass port
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';
+logger.info('Express app initialized.');
 
 // --- Middleware Stack ---
 app.use(helmet());
@@ -84,15 +87,16 @@ app.use(morgan(isProduction ? 'combined' : 'dev', {
   stream: { write: (/** @type {string} */ message) => logger.info(message.trim()) }
 }));
 app.use(cors({
-  origin: isProduction ? process.env.ALLOWED_ORIGINS?.split(',') || '*' : '*',
+  origin: isProduction ? ['https://rxprescribers.com', process.env.ALLOWED_ORIGINS || ''] : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   maxAge: 86400
 }));
-app.use(json({ limit: '1mb' }));
-app.use(urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
+logger.info('Core middleware configured.');
 
 // @ts-ignore - Ignore rateLimit type issue if types conflict
 const apiLimiter = rateLimit({
@@ -103,6 +107,7 @@ const apiLimiter = rateLimit({
   message: 'Too many requests, please try again later.'
 });
 app.use('/api/', apiLimiter);
+logger.info('Rate limiter configured.');
 
 /** @type {import('express').RequestHandler} */
 app.use((req, res, next) => {
@@ -111,6 +116,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Request-ID', customReq.id);
   next();
 });
+logger.info('Request ID middleware configured.');
 
 // --- Services Initialization ---
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -127,15 +133,24 @@ try {
   process.exit(1);
 }
 
-const pool = new Pool({
-  user: process.env.DB_USER, host: process.env.DB_HOST, database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD, port: parseInt(process.env.DB_PORT || '5432', 10),
-  max: parseInt(process.env.DB_POOL_MAX || '20', 10), idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000, ssl: isProduction ? { rejectUnauthorized: false } : false
-});
-pool.on('connect', (/** @type {import('pg').PoolClient} */ client) => { logger.debug('New client connected'); });
-pool.on('error', (/** @type {Error} */ err, /** @type {import('pg').PoolClient} */ client) => { logger.error('Idle client error', { error: err.message }); });
-pool.on('remove', (/** @type {import('pg').PoolClient} */ client) => { logger.debug('Client removed'); });
+let pool; // Define pool outside try block
+try {
+    pool = new Pool({ // Assign inside try block
+      user: process.env.DB_USER, host: process.env.DB_HOST, database: process.env.DB_DATABASE,
+      password: process.env.DB_PASSWORD, port: parseInt(process.env.DB_PORT || '5432', 10),
+      max: parseInt(process.env.DB_POOL_MAX || '20', 10), idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000, ssl: isProduction ? { rejectUnauthorized: false } : false // Adjust SSL based on DB requirements
+    });
+    pool.on('connect', (/** @type {import('pg').PoolClient} */ client) => { logger.debug('New client connected'); });
+    pool.on('error', (/** @type {Error} */ err, /** @type {import('pg').PoolClient} */ client) => { logger.error('Idle client error', { error: err.message }); });
+    pool.on('remove', (/** @type {import('pg').PoolClient} */ client) => { logger.debug('Client removed'); });
+    logger.info('PostgreSQL pool configured'); // Add log after config
+} catch (error) {
+    const err = /** @type {Error} */ (error);
+    logger.error('Failed to configure PostgreSQL pool', { error: err.message, stack: err.stack });
+    process.exit(1); // Exit if pool config fails
+}
+
 
 // --- Validation Schemas ---
 const findProvidersSchema = {
@@ -145,11 +160,13 @@ const findProvidersSchema = {
     sortBy: Joi.string().valid('distance', 'claims', 'name').default('distance'),
     locationName: Joi.string().allow(null, ''), zipCode: Joi.string().pattern(/^\d{5}$/).allow(null, ''),
     acceptedInsurance: Joi.array().items(Joi.string()).optional(), minRating: Joi.number().min(0).max(5).optional(),
-    cursor: Joi.number().integer().min(0).optional(), // Assuming offset-based cursor for now
+    cursor: Joi.number().integer().min(0).optional(),
     limit: Joi.number().integer().min(1).max(100).default(10)
   })
 };
 const addLocationSchema = { body: Joi.object({ name: Joi.string().required(), zipCode: Joi.string().pattern(/^\d{5}$/).required() }) };
+const drugSuggestionsSchema = { query: Joi.object({ q: Joi.string().min(2).required() }) }; // Validation for drug suggestions query
+logger.info('Validation schemas defined.');
 
 // --- Authentication Middleware ---
 /** @type {import('express').RequestHandler} */
@@ -174,6 +191,7 @@ const authenticateToken = async (req, res, next) => {
     res.status(500).json({ error: "Internal server error during authentication" });
   }
 };
+logger.info('Auth middleware defined.');
 
 // --- Role-based Access Control Middleware ---
 /**
@@ -198,6 +216,7 @@ const requireTier = (allowedTiers) => {
     }
   };
 };
+logger.info('RBAC middleware defined.');
 
 // --- Service Layer ---
 const userService = {
@@ -234,48 +253,38 @@ const providerService = {
   /** @param {any} params */
   async findProviders(params) {
     const { zipCode, drugName, radiusMiles, minClaims, taxonomyClass, sortBy, acceptedInsurance, minRating, cursor = 0, limit = 10, requestId } = params;
-    const offset = typeof cursor === 'number' ? cursor : 0; // Use offset for pagination
-    const radiusMeters = radiusMiles * 1609.34; // Convert miles to meters
+    const offset = typeof cursor === 'number' ? cursor : 0;
+    const radiusMeters = radiusMiles * 1609.34;
 
     logger.debug('Finding providers', { requestId, zipCode, drugName, radiusMiles, limit, offset });
     const client = await pool.connect();
     try {
-        // 1. Get coordinates for the search zip code
         const zipResult = await client.query('SELECT geom FROM us_zipcodes WHERE zip_code = $1 LIMIT 1', [zipCode]);
-        if (zipResult.rows.length === 0) {
-            throw new Error(`Coordinates not found for zip code ${zipCode}`);
-        }
+        if (zipResult.rows.length === 0) { throw new Error(`Coordinates not found for zip code ${zipCode}`); }
         const searchGeom = zipResult.rows[0].geom;
 
-        // 2. Build the main query with joins and filters
         let queryParams = [searchGeom, radiusMeters, drugName, minClaims];
-        let paramIndex = 5; // Start index for optional params
-
+        let paramIndex = 5;
         let baseQuery = `
             FROM npi_details nd
             JOIN npi_addresses na ON nd.npi = na.npi
             JOIN npi_prescriptions np ON nd.npi = np.npi
             JOIN us_zipcodes uz ON na.provider_business_practice_location_address_postal_code = uz.zip_code
-            WHERE ST_DWithin(uz.geom, $1, $2) -- Radius filter
-              AND (np.drug_name ILIKE $3 OR np.generic_name ILIKE $3) -- Drug name filter (case-insensitive)
-              AND np.total_claim_count >= $4 -- Min claims filter
+            WHERE ST_DWithin(uz.geom, $1, $2)
+              AND (np.drug_name ILIKE $3 OR np.generic_name ILIKE $3)
+              AND np.total_claim_count >= $4
         `;
-
-        // Add optional filters
         if (taxonomyClass) {
             baseQuery += ` AND nd.healthcare_provider_taxonomy_1_classification ILIKE $${paramIndex}`;
-            queryParams.push(`%${taxonomyClass}%`); // Use ILIKE for partial match
-            paramIndex++;
+            queryParams.push(`%${taxonomyClass}%`); paramIndex++;
         }
         // TODO: Add acceptedInsurance filter
         // TODO: Add minRating filter
 
-        // 3. Get total count
         const countQuery = `SELECT COUNT(DISTINCT nd.npi) as total_count ${baseQuery}`;
         const countResult = await client.query(countQuery, queryParams);
         const totalCount = parseInt(countResult.rows[0]?.total_count || '0', 10);
 
-        // 4. Build final query with selection, ordering, and pagination
         let finalQuery = `
             SELECT DISTINCT
                 nd.npi, nd.provider_first_name, nd.provider_last_name_legal_name as provider_last_name,
@@ -284,30 +293,22 @@ const providerService = {
                 na.provider_business_practice_location_address_city_name as city, na.provider_business_practice_location_address_state_name as state,
                 na.provider_business_practice_location_address_postal_code as postal_code, na.provider_business_practice_location_address_telephone_number as phone,
                 ST_X(uz.geom) as longitude, ST_Y(uz.geom) as latitude, ST_Distance(uz.geom, $1) as distance_meters, np.total_claim_count
-                -- TODO: Add rating column if available
             ${baseQuery}
         `;
-
-        // Add ORDER BY clause
         switch (sortBy) {
             case 'claims': finalQuery += ` ORDER BY np.total_claim_count DESC, distance_meters ASC`; break;
             case 'name': finalQuery += ` ORDER BY provider_last_name_legal_name ASC, provider_first_name ASC, distance_meters ASC`; break;
             case 'distance': default: finalQuery += ` ORDER BY distance_meters ASC`; break;
         }
-
-        // Add LIMIT and OFFSET
         finalQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         queryParams.push(limit); queryParams.push(offset);
 
-        // 5. Execute final query
         const results = await client.query(finalQuery, queryParams);
         logger.info(`Provider search completed`, { requestId, resultCount: results.rows.length, totalCount });
 
-        // 6. Calculate next cursor (offset)
         const nextOffset = offset + results.rows.length;
         const nextCursor = nextOffset < totalCount ? nextOffset : null;
 
-        // 7. Format results
         const formattedData = results.rows.map(row => ({
             id: row.npi.toString(), npi: row.npi.toString(),
             name: `${row.provider_first_name || ''} ${row.provider_last_name || ''}`.trim(),
@@ -319,7 +320,6 @@ const providerService = {
             rating: row.rating || 0, review_count: row.review_count || 0, availability: 'N/A', // Placeholders
             latitude: row.latitude, longitude: row.longitude,
         }));
-
         return { data: formattedData, totalCount, nextCursor };
     } finally { client.release(); }
   },
@@ -340,7 +340,6 @@ const providerService = {
             na.provider_business_practice_location_address_city_name as city, na.provider_business_practice_location_address_state_name as state,
             na.provider_business_practice_location_address_postal_code as postal_code, na.provider_business_practice_location_address_telephone_number as phone,
             ST_X(uz.geom) as longitude, ST_Y(uz.geom) as latitude,
-            -- TODO: Add bio, rating, review_count if available
             (SELECT json_agg(json_build_object('id', np.prescription_id, 'name', np.drug_name, 'genericName', np.generic_name))
              FROM npi_prescriptions np WHERE np.npi = nd.npi) as prescribed_medications
         FROM npi_details nd
@@ -367,6 +366,7 @@ const providerService = {
     } finally { client.release(); }
   }
 };
+logger.info('Service layer defined.');
 
 // --- API Routes ---
 /** @type {import('express').RequestHandler} */
@@ -413,6 +413,49 @@ const getProviderDetailsHandler = async (req, res) => {
     }
 };
 app.get('/api/providers/:id', authenticateToken, getProviderDetailsHandler);
+
+// --- Drug Suggestions Route ---
+/** @type {import('express').RequestHandler} */
+const getDrugSuggestionsHandler = async (req, res) => {
+    const customReq = /** @type {CustomRequest} */ (req); const requestId = customReq.id; const userId = customReq.user?.id;
+    const query = req.query.q;
+
+    if (!userId) { res.status(401).json({ error: "User not authenticated" }); return; }
+    if (typeof query !== 'string' || query.length < 2) { res.status(400).json({ error: 'Query parameter "q" must be at least 2 characters long.' }); return; }
+
+    logger.info('Processing drug-suggestions', { requestId, userId, query });
+    const client = await pool.connect();
+    try {
+        const searchQuery = `%${query}%`; // Add wildcards for ILIKE
+        // Query for distinct drug names or generic names matching the query, limit results
+        const dbQuery = `
+            SELECT DISTINCT drug_name FROM npi_prescriptions
+            WHERE drug_name ILIKE $1
+            LIMIT 10
+        `;
+        // Consider adding generic_name as well if needed:
+        // const dbQuery = `
+        //     SELECT DISTINCT name FROM (
+        //         SELECT drug_name as name FROM npi_prescriptions WHERE drug_name ILIKE $1
+        //         UNION
+        //         SELECT generic_name as name FROM npi_prescriptions WHERE generic_name ILIKE $1
+        //     ) as suggestions
+        //     LIMIT 10
+        // `;
+        const { rows } = await client.query(dbQuery, [searchQuery]);
+        const suggestions = rows.map(row => row.drug_name); // Extract the names
+        res.json(suggestions);
+    } catch (err) {
+        const error = /** @type {Error} */ (err);
+        logger.error('Drug suggestions error', { requestId, error: error.message, stack: error.stack });
+        res.status(500).json({ error: 'Internal server error fetching drug suggestions' });
+    } finally {
+        client.release();
+    }
+};
+// @ts-ignore - Ignore validation middleware type issue if @types/express-validation is missing
+app.get('/api/drug-suggestions', authenticateToken, validate(drugSuggestionsSchema, {}, {}), getDrugSuggestionsHandler);
+
 
 // --- Auth Sync & Membership Endpoints ---
 /** @type {import('express').RequestHandler} */
@@ -532,7 +575,7 @@ const setPrimaryLocationHandler = async (req, res) => {
     } finally { client.release(); }
 };
 app.put(`${USER_LOCATIONS_BASE}/:locationId/set-primary`, authenticateToken, requireTier(['premium', 'expert']), setPrimaryLocationHandler);
-
+logger.info('API routes defined.');
 
 // --- Error Handling ---
 /**
@@ -558,12 +601,17 @@ app.use((err, req, res, next) => {
   if (!res.headersSent) { res.status(status).json(responseError); }
   else { logger.error('Headers already sent for unhandled error', { requestId }); next(err); }
 });
+logger.info('Error handling middleware configured.');
 
 // --- Graceful Shutdown ---
 /** @param {string} signal */
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received - shutting down`);
-  try { await pool.end(); logger.info('DB pool ended'); }
+  try {
+      if (pool) { // Check if pool exists before ending
+        await pool.end(); logger.info('DB pool ended');
+      }
+  }
   catch (err) { const error = /** @type {Error} */ (err); logger.error('Error closing DB pool', { error: error.message }); }
   process.exit(0);
 };
@@ -571,12 +619,20 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM')); process.on('SIGINT', (
 process.on('unhandledRejection', (reason, promise) => {
   let errorDetails = {}; if (reason instanceof Error) errorDetails = { message: reason.message, stack: reason.stack }; else errorDetails = { reason: String(reason) };
   logger.error('Unhandled Rejection', errorDetails);
+  // Consider exiting process on unhandled rejection after logging
+  // process.exit(1);
 });
+logger.info('Graceful shutdown configured.');
 
 // --- Start Server ---
+// Check if running directly or required as a module
 if (require.main === module) {
+  logger.info(`Attempting to start server on port ${PORT}...`); // Add log before listen
   app.listen(PORT, () => { logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`); });
+} else {
+  logger.info('Server module loaded but not started directly.');
 }
 
-// Export for testing
-export default { app, pool, logger };
+
+// Export for testing or programmatic use
+module.exports = { app, pool, logger };

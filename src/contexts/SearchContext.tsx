@@ -2,6 +2,7 @@ import React, { createContext, useReducer, useContext, ReactNode, useCallback, u
 import { searchReducer, initialSearchState, SearchState, SearchAction, SearchFilters, SearchResultProvider } from '../reducers/searchReducer';
 import { ApiError, apiClient, SearchApiParams, PaginatedProvidersApiResponse } from '@/lib/api-client';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 
 interface SearchContextType {
   searchState: SearchState;
@@ -17,6 +18,7 @@ const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [searchState, searchDispatch] = useReducer(searchReducer, initialSearchState);
+  const { authState } = useAuth(); // Get authState
 
   // performSearch now uses the filters passed directly as arguments
   const performSearch = useCallback(async (filtersToUse: SearchFilters, isLoadMore: boolean = false) => {
@@ -56,7 +58,8 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       console.log(`Performing API search (isLoadMore: ${isLoadMore}) with params:`, apiParams);
-      const response: PaginatedProvidersApiResponse = await apiClient.findProviders(apiParams);
+      const token = authState.token; // Get token from authState
+      const response: PaginatedProvidersApiResponse = await apiClient.findProviders(apiParams, token); // Pass token
 
       const newPaginationState: SearchState['pagination'] = {
         // If loading more, increment page, otherwise reset to 1
@@ -92,8 +95,8 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       searchDispatch({ type: 'SET_SEARCH_LOADING', payload: false });
     }
-  // Dependencies: Include pagination state needed for calculations
-  }, [searchState.pagination.limit, searchState.pagination.nextCursor, searchState.pagination.currentPage]);
+  // Dependencies: Include pagination state needed for calculations and authState.token
+  }, [searchState.pagination.limit, searchState.pagination.nextCursor, searchState.pagination.currentPage, authState.token]);
 
 
   // No automatic search useEffect needed here anymore
@@ -105,13 +108,14 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     try {
       console.log('Fetching suggestions for:', query);
-      const suggestions = await apiClient.getDrugSuggestions(query);
+      const token = authState.token; // Get token from authState
+      const suggestions = await apiClient.getDrugSuggestions(query, token); // Pass token
       searchDispatch({ type: 'SET_SUGGESTIONS', payload: suggestions });
     } catch (error: unknown) {
       console.error('Suggestion fetch error:', error);
       searchDispatch({ type: 'SET_SUGGESTIONS', payload: [] });
     }
-  }, []); // apiClient is stable
+  }, [authState.token]); // Add authState.token to dependencies
 
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
     // This just updates the state, search is triggered manually
