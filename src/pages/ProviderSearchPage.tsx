@@ -50,14 +50,6 @@ const ProviderSearchPage = () => {
   }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip]);
 
 
-  // Effect to track if user has started interacting (optional, for UI feedback)
-  useEffect(() => {
-      if (filters.drugName || localLocationInput) {
-          setSearchAttempted(true);
-      }
-  }, [filters.drugName, localLocationInput]);
-
-
   // Handlers for ProviderSearch component
   const handleDrugNameChange = useCallback((value: string) => {
     updateFilters({ drugName: value });

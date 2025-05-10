@@ -63,7 +63,7 @@ logger.info('Logger configured.'); // Log early
 
 // --- Environment Validation ---
 const requiredEnvVars = [
-  'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+  'VITE_SUPABASE_URL', 'VITE_SUPABASE_SERVICE_ROLE_KEY',
   'DB_USER', 'DB_HOST', 'DB_DATABASE', 'DB_PASSWORD'
 ];
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -78,22 +78,28 @@ const app = express();
 const PORT = process.env.PORT || 4242; // Ensure this matches proxy_pass port
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';
-logger.info('Express app initialized.');
+
+// If running behind a trusted proxy (e.g., Nginx, Load Balancer)
+// Set this to the number of proxies or true if you trust the X-Forwarded-For header
+// This is important for express-rate-limit and other IP-dependent middleware
+app.set('trust proxy', 1); // Adjust as needed (e.g., 'loopback', '127.0.0.1', or true)
+logger.info(`Express app initialized. 'trust proxy' set to 1.`);
+
 
 // --- Middleware Stack ---
-app.use(helmet());
+app.use(helmet.default());
 app.use(compression());
 app.use(morgan(isProduction ? 'combined' : 'dev', {
   stream: { write: (/** @type {string} */ message) => logger.info(message.trim()) }
 }));
 app.use(cors({
-  origin: isProduction ? ['https://rxprescribers.com', process.env.ALLOWED_ORIGINS || ''] : '*',
+  origin: isProduction ? ['http://rxprescribers.com', process.env.ALLOWED_ORIGINS || ''] : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   maxAge: 86400
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '1000mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 logger.info('Core middleware configured.');
@@ -429,21 +435,15 @@ const getDrugSuggestionsHandler = async (req, res) => {
         const searchQuery = `%${query}%`; // Add wildcards for ILIKE
         // Query for distinct drug names or generic names matching the query, limit results
         const dbQuery = `
-            SELECT DISTINCT drug_name FROM npi_prescriptions
-            WHERE drug_name ILIKE $1
-            LIMIT 10
-        `;
-        // Consider adding generic_name as well if needed:
-        // const dbQuery = `
-        //     SELECT DISTINCT name FROM (
-        //         SELECT drug_name as name FROM npi_prescriptions WHERE drug_name ILIKE $1
-        //         UNION
-        //         SELECT generic_name as name FROM npi_prescriptions WHERE generic_name ILIKE $1
-        //     ) as suggestions
-        //     LIMIT 10
-        // `;
+        SELECT DISTINCT name FROM (
+          SELECT drug_name as name FROM npi_prescriptions WHERE drug_name ILIKE $1
+          UNION
+          SELECT generic_name as name FROM npi_prescriptions WHERE generic_name ILIKE $1
+          ) as suggestions
+          LIMIT 10
+         `;
         const { rows } = await client.query(dbQuery, [searchQuery]);
-        const suggestions = rows.map(row => row.drug_name); // Extract the names
+        const suggestions = rows.map(row => row.name); // Extract the names (aliased as 'name' in query)
         res.json(suggestions);
     } catch (err) {
         const error = /** @type {Error} */ (err);
@@ -496,6 +496,43 @@ const getMembershipHandler = async (req, res) => {
     }
 };
 app.post('/api/user-membership', authenticateToken, getMembershipHandler);
+
+// --- Test Auth Route ---
+/** @type {import('express').RequestHandler} */
+const testAuthHandler = async (req, res) => {
+    const customReq = /** @type {CustomRequest} */ (req);
+    const requestId = customReq.id;
+    const { token: tokenFromRequest } = req.body;
+
+    if (!tokenFromRequest) {
+        logger.warn('Test-auth: No token provided in request body', { requestId });
+        res.status(400).json({ error: "Token required in request body" }); return;
+    }
+
+    logger.info('Processing test-auth with provided token', { requestId });
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser(tokenFromRequest);
+
+        if (error) {
+            logger.warn('Test-auth: supabase.auth.getUser failed', { requestId, error: error.message, errorCode: error.code, errorStatus: error.status });
+            res.status(error.status || 500).json({ error: "Token validation failed", details: error }); return;
+        }
+        if (!user) {
+            logger.warn('Test-auth: supabase.auth.getUser returned no user (token likely invalid/expired)', { requestId });
+            res.status(403).json({ error: "Invalid or expired token (no user found)" }); return;
+        }
+
+        logger.info('Test-auth: Token validated successfully', { requestId, userId: user.id, email: user.email });
+        res.json({ success: true, user });
+    } catch (err) {
+        const error = /** @type {Error} */ (err);
+        logger.error('Test-auth: Unexpected error', { requestId, error: error.message, stack: error.stack });
+        res.status(500).json({ error: "Internal server error during test-auth" });
+    }
+};
+app.post('/api/test-auth', express.json(), testAuthHandler); // Use express.json() for this route specifically if not globally applied before this
+logger.info('Test auth route /api/test-auth defined.');
+
 
 // --- User Location Management Endpoints ---
 const USER_LOCATIONS_BASE = '/api/user/locations';
@@ -633,6 +670,3 @@ if (require.main === module) {
   logger.info('Server module loaded but not started directly.');
 }
 
-
-// Export for testing or programmatic use
-module.exports = { app, pool, logger };

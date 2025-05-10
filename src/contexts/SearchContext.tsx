@@ -107,8 +107,13 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return;
     }
     try {
-      console.log('Fetching suggestions for:', query);
       const token = authState.token; // Get token from authState
+      if (!token) {
+        console.warn('No auth token available, skipping drug suggestions fetch.');
+        searchDispatch({ type: 'SET_SUGGESTIONS', payload: [] });
+        return;
+      }
+      console.log('Fetching suggestions for:', query);
       const suggestions = await apiClient.getDrugSuggestions(query, token); // Pass token
       searchDispatch({ type: 'SET_SUGGESTIONS', payload: suggestions });
     } catch (error: unknown) {
