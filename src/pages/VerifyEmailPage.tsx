@@ -32,8 +32,8 @@ const VerifyEmailPage = () => {
       try {
         setVerificationStatus('loading');
         
-        // Use the correct verification method for the token
-        await client.verify({ token });
+        // Using the correct verification method - verifyToken instead of verify
+        await client.verifyToken({ token });
         
         setVerificationStatus('success');
         toast({
@@ -47,7 +47,7 @@ const VerifyEmailPage = () => {
         setVerificationStatus('error');
         toast({
           title: "Verification failed",
-          description: "Could not verify your email address. The link may have expired.",
+          description: "Could not verify your email address. The link may have expired or needs to be opened in the original browser session.",
           variant: "destructive"
         });
       }

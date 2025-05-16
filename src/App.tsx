@@ -65,16 +65,7 @@ const App = () => (
                     <Route path="/providers/:id" element={<ProviderDetailPage />} />
                     <Route path="/arkansas-providers" element={<ArkansasProvidersPage />} />
                     <Route path="/arkansas-providers/:npi" element={<ArkansasProviderDetailPage />} />
-                    <Route path="/find-providers" element={
-                      <>
-                        <SignedIn>
-                          <ProviderSearchPage />
-                        </SignedIn>
-                        <SignedOut>
-                          <Navigate to="/auth" />
-                        </SignedOut>
-                      </>
-                    } />
+                    <Route path="/find-providers" element={<ProviderSearchPage />} />
                     <Route path="/providers" element={<ProvidersPage />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/auth/verify-email-address" element={<VerifyEmailPage />} />

@@ -12,9 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Info } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useUser } from '@clerk/clerk-react';
 
 const ProviderSearchPage = () => {
-  const { user, membershipTier, loading: authLoading } = useAuth();
+  // Use both our custom auth hook and Clerk's useUser hook
+  const { membershipTier, loading: authLoading } = useAuth();
+  const { isSignedIn, isLoaded: clerkLoaded } = useUser();
   const navigate = useNavigate();
   const {
     searchState,
@@ -53,9 +56,9 @@ const ProviderSearchPage = () => {
     }
   }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip]);
 
-  // Redirect to login if not authenticated
-  if (!authLoading && !user) {
-    return <Navigate to="/auth?redirect=/providers/search" replace />;
+  // Redirect to login if not authenticated - checking both auth systems
+  if (!authLoading && clerkLoaded && !isSignedIn) {
+    return <Navigate to="/auth?redirect=/find-providers" replace />;
   }
 
   // Handlers for ProviderSearch component
@@ -154,7 +157,7 @@ const ProviderSearchPage = () => {
           Find Medication Providers
         </h1>
 
-        {authLoading ? (
+        {(authLoading || !clerkLoaded) ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
