@@ -114,6 +114,11 @@ const ProviderSearchPage = () => {
 
   // Handler for the explicit search button - ONLY place where search is triggered
   const handleSearchClick = async () => {
+    console.log("Search button clicked");
+    console.log("Local location input:", localLocationInput);
+    console.log("Membership tier:", membershipTier);
+    console.log("Search criteria met:", isSearchCriteriaMet);
+    
     setSearchAttempted(true);
     let finalZipCode: string | undefined = undefined;
     let finalLocationName: string | undefined = undefined;
@@ -124,14 +129,9 @@ const ProviderSearchPage = () => {
         finalZipCode = primaryLocationZip || undefined;
         break;
       case 'premium':
-        if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
-          finalZipCode = localLocationInput;
-        } else if (localLocationInput) {
-          finalLocationName = localLocationInput;
-        }
-        break;
       case 'expert':
       default:
+        // Accept any input as either zip or location name
         if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
           finalZipCode = localLocationInput;
         } else if (localLocationInput) {
@@ -140,8 +140,12 @@ const ProviderSearchPage = () => {
         break;
     }
 
+    // Log the final values for debugging
+    console.log("Final zip code:", finalZipCode);
+    console.log("Final location name:", finalLocationName);
+
     // Create the final filter object to send to performSearch
-    const filtersForSearch: SearchFilters = {
+    const filtersForSearch = {
       ...filters, // Get other filters from context state
       zipCode: finalZipCode,
       locationName: finalLocationName,
@@ -222,13 +226,13 @@ const ProviderSearchPage = () => {
               disableAutoSearch={true} // Disable automatic search to prevent resource exhaustion
             />
 
-            {/* Explicit Search Button */}
+            {/* Explicit Search Button - ensure it's a button type and properly styled */}
             <div className="mt-6 text-center">
               <Button
                 onClick={handleSearchClick}
                 disabled={!isSearchCriteriaMet || isLoading}
                 size="lg"
-                className="px-8 py-3 text-lg" // Make button more prominent
+                className="px-8 py-3 text-lg cursor-pointer" 
                 type="button"
               >
                 {isLoading ? (

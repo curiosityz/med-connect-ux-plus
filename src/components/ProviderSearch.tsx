@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import './ProviderSearch.css';
 import { useAuth } from '@/hooks/useAuth';
@@ -169,13 +168,14 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     onSelectedInsurancesChange(newSelection);
   };
 
-  // Handle manual location input change
+  // Handle manual location input change - ensure this works
   const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    console.log("Location input changed:", value);
     onLocationInputChange(value);
   };
 
-  // Location input rendering
+  // Location input rendering - fix the disabled state and class issues
   const renderLocationInput = () => {
     if (authLoading) {
       return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
@@ -183,12 +183,13 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     
     let labelText = "Zip Code";
     let placeholderText = "e.g., 90210";
+    // Make sure the field is NEVER disabled unless explicitly required
     let isDisabled = false;
     
     if (membershipTier === 'basic') {
       return (
         <div className="sm:col-span-1">
-          <Label htmlFor="location" className="input-label">Primary Location</Label>
+          <Label htmlFor="location" className="block text-sm font-medium">Primary Location</Label>
           {primaryLocationZip ? (
             <Input id="location" type="text" value={primaryLocationZip} disabled readOnly />
           ) : (
@@ -205,7 +206,9 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     
     return (
       <div className="sm:col-span-1">
-        <Label htmlFor="locationInput" className="input-label">{labelText}</Label>
+        <Label htmlFor="locationInput" className="block text-sm font-medium">
+          {labelText}
+        </Label>
         <Input
           id="locationInput"
           type="text"
@@ -213,6 +216,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           onChange={handleLocationInputChange}
           placeholder={placeholderText}
           disabled={isDisabled}
+          className="w-full"
         />
         {membershipTier === 'premium' && (
           <p className="text-xs text-muted-foreground mt-1">Select from saved locations.</p>
