@@ -1,0 +1,44 @@
+
+/* ProviderSearchPage specific styles */
+.provider-search-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-color, #f9fafb);
+}
+
+.provider-search-header {
+  text-align: center;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--text-color, #1f2937);
+}
+
+.provider-search-content {
+  flex-grow: 1;
+  container: mx-auto;
+  padding: 2rem 1rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Dark mode adaptations */
+@media (prefers-color-scheme: dark) {
+  .provider-search-container {
+    background-color: var(--background-color-dark, #111827);
+  }
+  
+  .provider-search-header {
+    color: var(--text-color-dark, #f3f4f6);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .provider-search-header {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}

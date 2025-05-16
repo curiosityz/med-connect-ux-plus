@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import './ProviderSearch.css';
 import { useAuth } from '@/hooks/useAuth';
 import { useClerkAuth } from '@/hooks/useClerkAuth';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -116,7 +117,6 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
 
   // Define all handler functions consistently
-
   const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDrugInput(value);
@@ -168,7 +168,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     if (membershipTier === 'basic') {
       return (
         <div className="sm:col-span-1">
-          <Label htmlFor="location" className="font-semibold block mb-1">Primary Location</Label>
+          <Label htmlFor="location" className="input-label">Primary Location</Label>
           {primaryLocationZip ? (
             <Input id="location" type="text" value={primaryLocationZip} disabled readOnly />
           ) : (
@@ -185,7 +185,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     
     return (
       <div className="sm:col-span-1">
-        <Label htmlFor="locationInput" className="font-semibold block mb-1">{labelText}</Label>
+        <Label htmlFor="locationInput" className="input-label">{labelText}</Label>
         <Input
           id="locationInput"
           type="text"
@@ -202,11 +202,11 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   };
 
   return (
-    <details className="p-4 border rounded-lg shadow-sm bg-card" open>
-      <summary className="font-semibold text-lg cursor-pointer hover:text-primary">Search Filters</summary>
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-end">
+    <details className="provider-search-details" open>
+      <summary className="provider-search-summary">Search Filters</summary>
+      <div className="provider-search-grid">
         <div className="relative sm:col-span-1">
-          <Label htmlFor="drugName" className="font-semibold block mb-1">Drug Name</Label>
+          <Label htmlFor="drugName" className="input-label">Drug Name</Label>
           <Input
             id="drugName"
             type="text"
@@ -218,7 +218,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
             autoComplete="off"
           />
           {showSuggestionsDropdown && (
-            <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="suggestion-dropdown">
               {isLoadingSuggestions && (
                 <div className="p-2 text-center text-muted-foreground flex items-center justify-center">
                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
@@ -232,7 +232,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
                   {drugSuggestionsFromContext.map((suggestion, index) => (
                     <li
                       key={index}
-                      className="px-3 py-2 hover:bg-muted cursor-pointer"
+                      className="suggestion-item"
                       onMouseDown={() => handleDrugSuggestionSelect(suggestion)}
                     >
                       {suggestion}
@@ -247,7 +247,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
         {renderLocationInput()}
 
         <div className="sm:col-span-1">
-          <Label htmlFor="radius" className="font-semibold block mb-1">Search Radius (miles)</Label>
+          <Label htmlFor="radius" className="input-label">Search Radius (miles)</Label>
           <Input
             id="radius"
             type="number"
@@ -259,7 +259,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
         </div>
 
         <div className="sm:col-span-1">
-          <Label htmlFor="minClaims" className="font-semibold block mb-1">Min. Claims</Label>
+          <Label htmlFor="minClaims" className="input-label">Min. Claims</Label>
           <Input
             id="minClaims"
             type="number"
@@ -271,7 +271,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
         </div>
 
         <div className="sm:col-span-1">
-          <Label htmlFor="taxonomyClass" className="font-semibold block mb-1">Specialty (Taxonomy)</Label>
+          <Label htmlFor="taxonomyClass" className="input-label">Specialty (Taxonomy)</Label>
           <Input
             id="taxonomyClass"
             type="text"
@@ -282,7 +282,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
         </div>
 
         <div className="sm:col-span-1">
-          <Label htmlFor="sortBy" className="font-semibold block mb-1">Sort By</Label>
+          <Label htmlFor="sortBy" className="input-label">Sort By</Label>
           <Select value={sortBy} onValueChange={(value: SortByType) => onSortByChange(value)}>
             <SelectTrigger id="sortBy">
               <SelectValue placeholder="Sort by..." />
@@ -297,7 +297,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
 
         {/* Insurance Filter using Popover + Command */}
         <div className="sm:col-span-2 md:col-span-2">
-           <Label className="font-semibold block mb-1">Insurance Accepted</Label>
+           <Label className="input-label">Insurance Accepted</Label>
            <Popover>
              <PopoverTrigger asChild>
                <Button
@@ -321,7 +321,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
                  <CommandList>
                    <CommandEmpty>No insurance found.</CommandEmpty>
                    <CommandGroup>
-                    <ScrollArea className="h-48"> {/* Limit height and make scrollable */}
+                    <ScrollArea className="h-48">
                      {MOCK_INSURANCES.map((insurance) => (
                        <CommandItem
                          key={insurance.id}
@@ -339,7 +339,6 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
                                : "opacity-0" // Hide checkbox, show checkmark via CommandItem's indicator
                            )}
                            checked={selectedInsurances.includes(insurance.id)}
-                           // onCheckedChange is handled by CommandItem onSelect
                          />
                          <span>{insurance.label}</span>
                          <Check
@@ -372,7 +371,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
 
 
         <div className="sm:col-span-1 md:col-span-2">
-          <Label htmlFor="minRating" className="font-semibold block mb-1">Min. Rating (1-5)</Label>
+          <Label htmlFor="minRating" className="input-label">Min. Rating (1-5)</Label>
           <div className="flex items-center space-x-1 mb-1">
             {[1, 2, 3, 4, 5].map(star => (
               <Star
