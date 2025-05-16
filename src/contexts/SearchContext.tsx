@@ -58,6 +58,8 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         type: 'SEARCH_FAILURE',
         payload: {
           message: error.message || 'An error occurred during search',
+          status: error.status || 500,
+          name: error.name || 'ApiError',
           data: error.data
         }
       });

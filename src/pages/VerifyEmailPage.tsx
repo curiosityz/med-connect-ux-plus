@@ -1,124 +1,114 @@
 
-import React from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useClerk } from '@clerk/clerk-react';
-import { Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useUser, useClerk } from '@clerk/clerk-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
-import { useToast } from '@/components/ui/use-toast';
 
-const VerifyEmailPage = () => {
-  const { toast } = useToast();
+const VerifyEmailPage: React.FC = () => {
+  const [verificationState, setVerificationState] = useState<'loading' | 'success' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const location = useLocation();
   const navigate = useNavigate();
-  const { client } = useClerk();
-  const [searchParams] = useSearchParams();
-  const [verificationStatus, setVerificationStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const token = searchParams.get('token');
+  const { isLoaded, isSignedIn } = useUser();
+  const clerk = useClerk();
 
-  React.useEffect(() => {
-    const verifyEmail = async () => {
-      if (!token) {
-        toast({
-          title: "Missing verification token",
-          description: "No verification token found in the URL.",
-          variant: "destructive"
-        });
-        setVerificationStatus('error');
-        return;
-      }
-
+  useEffect(() => {
+    const verifyToken = async () => {
       try {
-        setVerificationStatus('loading');
+        // Get token from URL parameters
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
         
-        // Use client.verify() with the token parameter
-        await client.verify({ token });
-        
-        setVerificationStatus('success');
-        toast({
-          title: "Email verified",
-          description: "Your email has been successfully verified.",
-        });
-        // Redirect after a short delay to show success state
-        setTimeout(() => navigate('/auth'), 2000);
-      } catch (error) {
-        console.error("Email verification error:", error);
-        setVerificationStatus('error');
-        toast({
-          title: "Verification failed",
-          description: "Could not verify your email address. The link may have expired or needs to be opened in the original browser session.",
-          variant: "destructive"
-        });
+        // Handle missing token case
+        if (!token) {
+          setErrorMessage('Verification token is missing.');
+          setVerificationState('error');
+          return;
+        }
+
+        // Use clerk.client to verify the token
+        if (clerk.client) {
+          await clerk.client.verifyToken({ token });
+          setVerificationState('success');
+          
+          // Redirect to home page after successful verification after a delay
+          setTimeout(() => {
+            navigate('/');
+          }, 3000);
+        } else {
+          throw new Error('Clerk client is not available');
+        }
+      } catch (error: any) {
+        console.error('Email verification error:', error);
+        setErrorMessage(error.message || 'Failed to verify email.');
+        setVerificationState('error');
       }
     };
 
-    verifyEmail();
-  }, [token, client, navigate, toast]);
+    if (isLoaded) {
+      verifyToken();
+    }
+  }, [isLoaded, location.search, navigate, clerk]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <MainNavigation />
-      <div className="flex-grow flex items-center justify-center p-4">
+      
+      <main className="flex-grow flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Email Verification</CardTitle>
-            <CardDescription>
-              {verificationStatus === 'idle' && "We're verifying your email address"}
-              {verificationStatus === 'loading' && "Verifying your email address..."}
-              {verificationStatus === 'success' && "Email verified successfully!"}
-              {verificationStatus === 'error' && "There was a problem verifying your email"}
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">
+              Email Verification
+            </CardTitle>
+            <CardDescription className="text-center">
+              {verificationState === 'loading' && 'Verifying your email address...'}
+              {verificationState === 'success' && 'Your email has been verified!'}
+              {verificationState === 'error' && 'Verification failed'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-6">
-            <div className="h-20 w-20 flex items-center justify-center rounded-full bg-primary/10">
-              {verificationStatus === 'idle' || verificationStatus === 'loading' ? (
-                <Mail className="h-10 w-10 text-primary animate-pulse" />
-              ) : verificationStatus === 'success' ? (
-                <CheckCircle className="h-10 w-10 text-green-500" />
-              ) : (
-                <AlertCircle className="h-10 w-10 text-red-500" />
-              )}
-            </div>
-
-            {verificationStatus === 'idle' && (
-              <p className="text-center text-muted-foreground">
-                Please wait while we verify your email address.
-              </p>
+          
+          <CardContent className="flex flex-col items-center">
+            {verificationState === 'loading' && (
+              <Loader2 className="h-16 w-16 text-primary animate-spin mb-4" />
             )}
             
-            {verificationStatus === 'loading' && (
-              <p className="text-center text-muted-foreground">
-                This should only take a moment...
-              </p>
+            {verificationState === 'success' && (
+              <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
             )}
             
-            {verificationStatus === 'success' && (
-              <p className="text-center text-muted-foreground">
-                Your email has been verified. You will be redirected to the login page shortly.
-              </p>
-            )}
-            
-            {verificationStatus === 'error' && (
-              <div className="space-y-4 w-full">
-                <p className="text-center text-muted-foreground">
-                  The verification link may have expired or is invalid.
-                </p>
-                <p className="text-center text-muted-foreground text-sm">
-                  To continue, open the verification link on the device and browser from which you initiated the sign-in.
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => navigate('/auth')}
-                >
-                  Return to Sign In
-                </Button>
-              </div>
+            {verificationState === 'error' && (
+              <>
+                <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
+                <p className="text-red-500 text-center">{errorMessage}</p>
+              </>
             )}
           </CardContent>
+          
+          <CardFooter className="flex justify-center">
+            {verificationState === 'success' && (
+              <p className="text-center text-sm text-muted-foreground">
+                Redirecting you to the home page...
+              </p>
+            )}
+            
+            {verificationState === 'error' && (
+              <div className="flex flex-col items-center gap-2">
+                <Button asChild>
+                  <Link to="/auth">Return to Sign In</Link>
+                </Button>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Need help? <a href="mailto:support@example.com" className="text-primary hover:underline">Contact Support</a>
+                </p>
+              </div>
+            )}
+          </CardFooter>
         </Card>
-      </div>
+      </main>
+      
       <Footer />
     </div>
   );

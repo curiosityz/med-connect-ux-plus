@@ -1,13 +1,13 @@
 
-import { useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
+import { useAuth, useSession } from '@clerk/clerk-react';
 
 export const useClerkAuth = () => {
-  const { isLoaded, userId } = useClerkAuth();
+  const clerkAuth = useAuth();
   const { session } = useSession();
   
   return {
-    isAuthenticated: isLoaded && !!userId,
+    isAuthenticated: clerkAuth.isLoaded && !!clerkAuth.userId,
     token: session?.getToken() || null,
-    isLoading: !isLoaded
+    isLoading: !clerkAuth.isLoaded
   };
 };
