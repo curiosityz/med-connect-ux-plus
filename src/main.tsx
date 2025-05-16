@@ -19,7 +19,9 @@ const rootElement = document.getElementById('root');
 if (rootElement) {
   createRoot(rootElement).render(
     <React.StrictMode>
-      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder'}>
+      <ClerkProvider 
+        publishableKey={CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder'}
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <App />
         </ThemeProvider>
