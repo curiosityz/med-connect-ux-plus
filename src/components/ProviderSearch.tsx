@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import './ProviderSearch.css';
 import { useAuth } from '@/hooks/useAuth';
@@ -72,6 +73,9 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   const { membershipTier, loading: authLoading } = useAuth();
   const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
+  
+  // Add debug logging for membershipTier
+  console.log("Current membershipTier:", membershipTier);
   
   // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
@@ -181,17 +185,16 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
       return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
     }
     
-    let labelText = "Zip Code";
-    let placeholderText = "e.g., 90210";
-    // Make sure the field is NEVER disabled unless explicitly required
-    let isDisabled = false;
+    // Log to help debug
+    console.log("Rendering location input for membership tier:", membershipTier);
     
+    // For basic tier (fixed location)
     if (membershipTier === 'basic') {
       return (
         <div className="sm:col-span-1">
           <Label htmlFor="location" className="block text-sm font-medium">Primary Location</Label>
           {primaryLocationZip ? (
-            <Input id="location" type="text" value={primaryLocationZip} disabled readOnly />
+            <Input id="location" type="text" value={primaryLocationZip} disabled readOnly className="opacity-70 cursor-not-allowed bg-gray-100" />
           ) : (
             <p className="text-sm text-muted-foreground pt-2">
               Primary location not set. Please set it in your profile to enable search.
@@ -199,10 +202,11 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           )}
         </div>
       );
-    } else if (membershipTier === 'premium') {
-      labelText = "Location Name / Zip Code";
-      placeholderText = "Enter city, state, or zip";
-    }
+    } 
+    
+    // For premium and expert tiers (editable location)
+    let labelText = "Location Name / Zip Code";
+    let placeholderText = "Enter city, state, or zip";
     
     return (
       <div className="sm:col-span-1">
@@ -215,8 +219,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           value={locationInput}
           onChange={handleLocationInputChange}
           placeholder={placeholderText}
-          disabled={isDisabled}
-          className="w-full"
+          className="w-full bg-background"
         />
         {membershipTier === 'premium' && (
           <p className="text-xs text-muted-foreground mt-1">Select from saved locations.</p>

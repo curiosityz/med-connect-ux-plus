@@ -32,8 +32,8 @@ const VerifyEmailPage: React.FC = () => {
 
         // Use clerk instance to verify the token
         if (clerk && isLoaded) {
-          // Fixed: Use the correct method based on Clerk API
-          await clerk.verifyEmailAddress({ token });
+          // Updated: Use the correct method for email verification
+          await clerk.client.verifyEmail(token);
           setVerificationState('success');
           
           // Redirect to home page after successful verification after a delay

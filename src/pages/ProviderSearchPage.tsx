@@ -15,6 +15,7 @@ import { Loader2, Info } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUser } from '@clerk/clerk-react';
+import { toast } from 'sonner';
 
 const ProviderSearchPage = () => {
   // Always call hooks at the top level, unconditionally
@@ -42,12 +43,18 @@ const ProviderSearchPage = () => {
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [clerkToken, setClerkToken] = useState<string | null>(null);
 
+  // Log membership tier whenever it changes
+  useEffect(() => {
+    console.log("Current membershipTier in ProviderSearchPage:", membershipTier);
+  }, [membershipTier]);
+
   // Get token on mount and when auth changes
   useEffect(() => {
     const loadToken = async () => {
       if (isSignedIn && clerkLoaded) {
         try {
           const newToken = await getToken();
+          console.log("Clerk token loaded:", newToken ? "Available" : "Not available");
           setClerkToken(newToken);
         } catch (err) {
           console.error('Failed to get authentication token:', err);
@@ -61,17 +68,25 @@ const ProviderSearchPage = () => {
   }, [getToken, isSignedIn, clerkLoaded]);
 
   // Memoized primary location zip
-  const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
+  const primaryLocationZip = useMemo(() => {
+    console.log("Calculating primaryLocationZip based on membershipTier:", membershipTier);
+    return membershipTier === 'basic' ? "90210" : null;
+  }, [membershipTier]);
 
   // Effect to SYNC local input state FROM context/auth state when relevant parts change
   useEffect(() => {
     let locationToShow = '';
+    
+    // Basic users see fixed zip code
     if (membershipTier === 'basic' && primaryLocationZip) {
       locationToShow = primaryLocationZip;
+      console.log("Setting basic tier location to:", locationToShow);
     } else {
-      // Show zip if available, otherwise location name
+      // Premium/expert users see entered location
       locationToShow = filters.locationName || filters.zipCode || '';
+      console.log("Setting premium/expert tier location to:", locationToShow);
     }
+    
     // Only update local state if it's different from what should be shown
     if (localLocationInput !== locationToShow) {
       setLocalLocationInput(locationToShow);
@@ -85,8 +100,14 @@ const ProviderSearchPage = () => {
   }, [updateFilters]);
 
   const handleLocationInputChange = useCallback((value: string) => {
-    setLocalLocationInput(value);
-  }, []);
+    console.log("Location input changed in parent:", value);
+    // For non-basic users, update the local state
+    if (membershipTier !== 'basic') {
+      setLocalLocationInput(value);
+    } else {
+      console.log("Ignoring location change for basic tier");
+    }
+  }, [membershipTier]);
 
   const handleRadiusChange = useCallback((value: number) => {
     updateFilters({ radius: value });
@@ -124,25 +145,19 @@ const ProviderSearchPage = () => {
     let finalLocationName: string | undefined = undefined;
 
     // Determine final zip/location based on tier and local input *at time of click*
-    switch (membershipTier) {
-      case 'basic':
-        finalZipCode = primaryLocationZip || undefined;
-        break;
-      case 'premium':
-      case 'expert':
-      default:
-        // Accept any input as either zip or location name
-        if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
-          finalZipCode = localLocationInput;
-        } else if (localLocationInput) {
-          finalLocationName = localLocationInput;
-        }
-        break;
+    if (membershipTier === 'basic') {
+      finalZipCode = primaryLocationZip || undefined;
+      console.log("Using basic tier fixed location:", finalZipCode);
+    } else {
+      // Premium or expert tier - can use any location
+      if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
+        finalZipCode = localLocationInput;
+        console.log("Using zip code input:", finalZipCode);
+      } else if (localLocationInput) {
+        finalLocationName = localLocationInput;
+        console.log("Using location name input:", finalLocationName);
+      }
     }
-
-    // Log the final values for debugging
-    console.log("Final zip code:", finalZipCode);
-    console.log("Final location name:", finalLocationName);
 
     // Create the final filter object to send to performSearch
     const filtersForSearch = {
@@ -158,23 +173,35 @@ const ProviderSearchPage = () => {
     if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
       try {
         await performSearch(filtersForSearch, false); // false = not load more
+        toast.success("Search completed successfully");
       } catch (error) {
         console.error('Error performing search:', error);
+        toast.error("Search failed. Please try again.");
       }
     } else {
       console.log("Search criteria not met for API call.");
+      toast.error("Please enter a drug name and location to search.");
     }
   };
 
   // Determine if the search criteria are met (for enabling search button)
   const isSearchCriteriaMet = useMemo(() => {
-    if (authLoading || !filters.drugName || filters.drugName.length < 2) return false;
+    if (authLoading || !filters.drugName || filters.drugName.length < 2) {
+      console.log("Search criteria not met: Missing drug name or still loading");
+      return false;
+    }
     
     // For basic membership, check if primaryLocationZip exists
-    if (membershipTier === 'basic') return !!primaryLocationZip;
+    if (membershipTier === 'basic') {
+      const result = !!primaryLocationZip;
+      console.log("Basic tier search criteria met:", result);
+      return result;
+    }
     
     // For other membership types, check if location input exists
-    return !!localLocationInput.trim();
+    const result = !!localLocationInput.trim();
+    console.log("Premium/expert tier search criteria met:", result);
+    return result;
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);
 
   // Handle authentication redirect early - but AFTER all hooks are called
@@ -203,6 +230,7 @@ const ProviderSearchPage = () => {
               <AlertDescription>
                 Searches will query the PostgreSQL database at {process.env.DB_HOSTNAME || 'rxprescribers.com'}.
                 {clerkToken ? ' Authentication token available.' : ' No authentication token available.'}
+                Current membership tier: {membershipTier || 'none'}
               </AlertDescription>
             </Alert>
 

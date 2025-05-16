@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Provider as AuthProvider, SignInWithPasswordCredentials, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
@@ -21,6 +22,14 @@ async function syncUserToCustomBackend(user: User, token: string | null): Promis
 }
 
 async function fetchUserMembershipTier(userId: string, token: string | null): Promise<MembershipTier> {
+  // For testing/debugging, return a fixed tier
+  // Comment out the API call implementation and use this fixed value instead
+  // This helps us debug the UI behavior with different membership tiers
+  console.log('Fetching membership tier for user:', userId);
+  console.log('Using premium tier for testing purposes');
+  return 'premium'; // Change to 'basic' or 'expert' to test different tier behaviors
+
+  /* Uncomment this for production code that actually fetches the tier
   try {
     const response = await apiClient.fetchUserMembership(userId, token);
     console.log('Membership tier response:', response);
@@ -29,6 +38,7 @@ async function fetchUserMembershipTier(userId: string, token: string | null): Pr
     console.error('Error fetching user membership tier:', error);
     return 'basic'; // Default on error
   }
+  */
 }
 
 export type MembershipTier = 'basic' | 'premium' | 'expert' | null;
@@ -40,6 +50,7 @@ export function useAuth() {
   const [error, setError] = useState<Error | null>(null);
 
   const handleUserSession = useCallback(async (sessionUser: User | null) => {
+    console.log("Handling user session:", sessionUser?.email);
     setUser(sessionUser);
     if (sessionUser) {
       const { data: { session } } = await supabase.auth.getSession();
@@ -47,8 +58,10 @@ export function useAuth() {
       
       await syncUserToCustomBackend(sessionUser, token);
       const tier = await fetchUserMembershipTier(sessionUser.id, token);
+      console.log("Setting membership tier to:", tier);
       setMembershipTier(tier);
     } else {
+      console.log("No user session, setting membership tier to null");
       setMembershipTier(null);
     }
     setLoading(false);
@@ -67,10 +80,12 @@ export function useAuth() {
       }
     };
 
+    console.log("Initializing auth hook");
     getInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        console.log("Auth state changed:", _event);
         setLoading(true);
         setError(null);
         await handleUserSession(session?.user || null);
