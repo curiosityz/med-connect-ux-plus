@@ -1,153 +1,164 @@
-import { Provider } from '@/lib/supabase'; // Import the main Provider type
-import { ApiError } from '@/lib/api-client'; // Import ApiError
 
-// Use the main Provider type for search results
-export type SearchResultProvider = Provider;
+// Update the SearchReducer to have a token field
+import { Provider } from '@/lib/supabase';
+import { ApiError } from '@/lib/api-client';
 
 export interface SearchFilters {
   drugName?: string;
-  locationName?: string; // For premium tier
-  zipCode?: string;      // For expert tier or fallback
+  zipCode?: string;
+  locationName?: string;
   radius?: number;
   minClaims?: number;
   taxonomyClass?: string;
   sortBy?: 'distance' | 'claims' | 'name';
-  limit?: number; // Added limit to filters
-  acceptedInsurance?: string[]; // Added acceptedInsurance
-  minRating?: number; // Added minRating
+  acceptedInsurance?: string[];
+  minRating?: number;
+  token?: string | null; // Add token field
+}
+
+export interface SearchPagination {
+  nextCursor: string | number | null;
+  totalCount: number;
 }
 
 export interface SearchState {
-  results: SearchResultProvider[];
+  filters: SearchFilters;
+  results: Provider[];
+  suggestions: string[];
   isLoading: boolean;
   error: ApiError | null;
-  filters: SearchFilters;
-  suggestions: string[]; // For typeahead
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalResults: number;
-    nextCursor: string | number | null;
-    limit: number;
-  };
-  triggerLoadMore: boolean; // Flag to trigger load more effect
+  pagination: SearchPagination;
+  token: string | null; // Add token field at the state level
 }
 
 export const initialSearchState: SearchState = {
-  results: [],
-  isLoading: false,
-  error: null,
   filters: {
+    drugName: '',
+    zipCode: '',
+    locationName: undefined,
     radius: 10,
-    minClaims: 0,
+    minClaims: undefined,
+    taxonomyClass: undefined,
     sortBy: 'distance',
-    limit: 10,
     acceptedInsurance: [],
     minRating: 0,
+    token: null, // Initialize token as null
   },
+  results: [],
   suggestions: [],
+  isLoading: false,
+  error: null,
   pagination: {
-    currentPage: 1,
-    totalPages: 0,
-    totalResults: 0,
     nextCursor: null,
-    limit: 10,
+    totalCount: 0,
   },
-  triggerLoadMore: false, // Initialize flag
+  token: null, // Initialize token as null
 };
 
 export type SearchAction =
-  | { type: 'SET_SEARCH_LOADING'; payload: boolean }
-  | { type: 'SET_SEARCH_RESULTS'; payload: { results: SearchResultProvider[]; pagination: SearchState['pagination'] } }
-  | { type: 'APPEND_SEARCH_RESULTS'; payload: { results: SearchResultProvider[]; pagination: Pick<SearchState['pagination'], 'nextCursor' | 'totalResults'> } }
-  | { type: 'SET_SEARCH_ERROR'; payload: ApiError | null }
-  | { type: 'UPDATE_FILTERS'; payload: Partial<SearchFilters> } // Triggers new search implicitly via useEffect in context
-  | { type: 'SET_SUGGESTIONS'; payload: string[] }
-  | { type: 'CLEAR_SEARCH_STATE' }
-  | { type: 'LOAD_MORE_REQUEST' }; // Action to signal loading more
+  | { type: 'UPDATE_FILTERS'; payload: Partial<SearchFilters> }
+  | { type: 'SEARCH_REQUEST' }
+  | { 
+      type: 'SEARCH_SUCCESS';
+      payload: {
+        results: Provider[];
+        pagination: SearchPagination;
+      }
+    }
+  | { 
+      type: 'SEARCH_MORE_SUCCESS';
+      payload: {
+        results: Provider[];
+        pagination: SearchPagination;
+      }
+    }
+  | { type: 'SEARCH_FAILURE'; payload: ApiError }
+  | { type: 'FETCH_SUGGESTIONS_REQUEST' }
+  | { type: 'FETCH_SUGGESTIONS_SUCCESS'; payload: string[] }
+  | { type: 'FETCH_SUGGESTIONS_FAILURE'; payload: string }
+  | { type: 'UPDATE_TOKEN'; payload: string | null }; // Add UPDATE_TOKEN action
 
 export const searchReducer = (state: SearchState, action: SearchAction): SearchState => {
   switch (action.type) {
-    case 'SET_SEARCH_LOADING':
+    case 'UPDATE_FILTERS':
       return {
         ...state,
-        isLoading: action.payload,
-        // Optionally clear error when explicitly setting loading?
-        // error: action.payload ? null : state.error,
-        // Reset triggerLoadMore if loading is set to false externally?
-        triggerLoadMore: action.payload ? state.triggerLoadMore : false,
+        filters: {
+          ...state.filters,
+          ...action.payload,
+        },
+        // If updating token in filter, also update it in state
+        token: action.payload.token !== undefined ? action.payload.token : state.token,
       };
-    case 'SET_SEARCH_RESULTS': // For initial search or page change that replaces results
+      
+    case 'SEARCH_REQUEST':
+      return {
+        ...state,
+        isLoading: true,
+        error: null,
+      };
+      
+    case 'SEARCH_SUCCESS':
       return {
         ...state,
         results: action.payload.results,
-        pagination: {
-          ...state.pagination,
-          ...action.payload.pagination,
-        },
+        pagination: action.payload.pagination,
         isLoading: false,
-        triggerLoadMore: false, // Reset flag
-        error: null, // Clear error on successful search
+        error: null,
       };
-    case 'APPEND_SEARCH_RESULTS': // For "load more" / infinite scroll
+      
+    case 'SEARCH_MORE_SUCCESS':
       return {
         ...state,
         results: [...state.results, ...action.payload.results],
-        pagination: {
-          ...state.pagination,
-          nextCursor: action.payload.pagination.nextCursor,
-          totalResults: action.payload.pagination.totalResults,
-          currentPage: state.pagination.nextCursor ? state.pagination.currentPage + 1 : state.pagination.currentPage,
-        },
-        isLoading: false, // Set loading false after append completes
-        triggerLoadMore: false, // Reset flag
-        error: null, // Clear error on successful append
+        pagination: action.payload.pagination,
+        isLoading: false,
+        error: null,
       };
-    case 'LOAD_MORE_REQUEST':
-        // Set loading state, clear error, set trigger flag
-        if (state.isLoading || !state.pagination.nextCursor) return state; // Don't trigger if already loading or no next page
-        return {
-            ...state,
-            isLoading: true,
-            error: null,
-            triggerLoadMore: true, // Set flag for effect hook
-        };
-    case 'SET_SEARCH_ERROR':
+      
+    case 'SEARCH_FAILURE':
       return {
         ...state,
-        error: action.payload,
         isLoading: false,
-        triggerLoadMore: false, // Reset flag on error
-        // results: [], // Decide if results should be cleared on error
+        error: action.payload,
       };
-    case 'UPDATE_FILTERS':
-      // When filters update, reset pagination and trigger a new search implicitly via useEffect
+      
+    case 'FETCH_SUGGESTIONS_REQUEST':
       return {
-          ...state,
-          filters: {
-              ...state.filters,
-              ...action.payload,
-          },
-          pagination: { // Reset pagination for new search
-              ...initialSearchState.pagination,
-              limit: state.pagination.limit, // Keep current limit
-          },
-          isLoading: true, // Set loading true for the new search
-          error: null,
-          triggerLoadMore: false, // Ensure load more isn't triggered
+        ...state,
+        isLoading: true,
+        error: null,
       };
-    case 'SET_SUGGESTIONS':
+      
+    case 'FETCH_SUGGESTIONS_SUCCESS':
       return {
         ...state,
         suggestions: action.payload,
+        isLoading: false,
+        error: null,
       };
-    case 'CLEAR_SEARCH_STATE':
+      
+    case 'FETCH_SUGGESTIONS_FAILURE':
       return {
-        ...initialSearchState,
-        // Optionally preserve some filters like limit?
-        filters: { ...initialSearchState.filters, limit: state.filters.limit || initialSearchState.filters.limit },
-        pagination: { ...initialSearchState.pagination, limit: state.pagination.limit || initialSearchState.pagination.limit }
+        ...state,
+        isLoading: false,
+        error: {
+          message: action.payload,
+          status: 0,
+          name: 'ApiError'
+        },
       };
+      
+    case 'UPDATE_TOKEN':
+      return {
+        ...state,
+        token: action.payload,
+        filters: {
+          ...state.filters,
+          token: action.payload,
+        },
+      };
+      
     default:
       return state;
   }

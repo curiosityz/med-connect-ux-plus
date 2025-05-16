@@ -1,21 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useClerkAuth } from '@/hooks/useClerkAuth';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useSearch } from '@/contexts/SearchContext'; // Import useSearch
+import { useSearch } from '@/contexts/SearchContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchApiParams } from '@/lib/api-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Star, Check, ChevronsUpDown } from "lucide-react"; // Added Check, ChevronsUpDown
+import { Star, Check, ChevronsUpDown } from "lucide-react";
 import { Loader2 } from 'lucide-react';
-import { Button } from "@/components/ui/button"; // Added Button
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Added Popover components
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"; // Added Command components
-import { Badge } from "@/components/ui/badge"; // Added Badge
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
-import { cn } from "@/lib/utils"; // Added cn utility
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 const MOCK_INSURANCES = [
   { id: "aetna", label: "Aetna" },
@@ -57,6 +58,8 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   minRating, onMinRatingChange
 }) => {
   const { membershipTier, loading: authLoading } = useAuth();
+  // Add Clerk auth to get token
+  const { token: clerkToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
   // Assuming searchState has a specific isLoadingSuggestions or use global isLoading for now
   const { suggestions: drugSuggestionsFromContext, isLoading: isContextLoading } = searchState;
@@ -68,15 +71,14 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   // isLoadingSuggestions can be derived from context's global loading or a specific one
   const isLoadingSuggestions = isContextLoading && drugInput.length > 0 && showSuggestionsDropdown;
 
-
   useEffect(() => {
     if (debouncedDrugInput && debouncedDrugInput.length >= 2) {
-      fetchSuggestions(debouncedDrugInput);
+      fetchSuggestions(debouncedDrugInput, clerkToken);
       // setShowSuggestionsDropdown(true); // Managed by focus/blur and input length now
     } else {
       setShowSuggestionsDropdown(false);
     }
-  }, [debouncedDrugInput, fetchSuggestions]);
+  }, [debouncedDrugInput, fetchSuggestions, clerkToken]);
 
   useEffect(() => {
     setDrugInput(drugName);

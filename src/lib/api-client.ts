@@ -224,7 +224,14 @@ class ApiClient {
 
   public async getDrugSuggestions(query: string, token?: string | null): Promise<string[]> {
     if (!query) return [];
-    // Ensure this endpoint exists and works on the backend
+    
+    if (!token) {
+      console.warn('No authentication token available for drug suggestions');
+      // Return empty array or mock data if no token
+      return [];
+    }
+    
+    // Use the token in the API request
     return this.get<string[]>(`/drug-suggestions?q=${encodeURIComponent(query)}`, token);
   }
 

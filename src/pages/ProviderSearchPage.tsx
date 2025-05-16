@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
@@ -6,6 +5,7 @@ import { ProviderSearch } from '@/components/ProviderSearch';
 import { ProviderResultsList } from '@/components/ProviderResultsList';
 import ProviderMap from '@/components/Map/ProviderMap';
 import { useAuth } from '@/hooks/useAuth';
+import { useClerkAuth } from '@/hooks/useClerkAuth';
 import { useSearch } from '@/contexts/SearchContext';
 import { SearchFilters } from '@/reducers/searchReducer';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ const ProviderSearchPage = () => {
   // Use both our custom auth hook and Clerk's useUser hook
   const { membershipTier, loading: authLoading } = useAuth();
   const { isSignedIn, isLoaded: clerkLoaded } = useUser();
+  const { token: clerkToken } = useClerkAuth();
   const navigate = useNavigate();
   const {
     searchState,
@@ -54,7 +55,7 @@ const ProviderSearchPage = () => {
     if (localLocationInput !== locationToShow) {
       setLocalLocationInput(locationToShow);
     }
-  }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip]);
+  }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip, localLocationInput]);
 
   // Redirect to login if not authenticated - checking both auth systems
   if (!authLoading && clerkLoaded && !isSignedIn) {
@@ -133,7 +134,13 @@ const ProviderSearchPage = () => {
 
       // Perform the search if criteria are met
       if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
-         performSearch(filtersForSearch, false); // false = not load more
+         // Pass the Clerk token to performSearch by updating the token in search state
+         updateFilters({ token: clerkToken || null });
+         
+         // Small delay to ensure the token is updated in the state
+         setTimeout(() => {
+           performSearch(filtersForSearch, false); // false = not load more
+         }, 100);
       } else {
          console.log("Search criteria not met for API call.");
          // Optionally show a message if criteria aren't met on click
@@ -168,6 +175,7 @@ const ProviderSearchPage = () => {
               <AlertTitle>Connected to Database</AlertTitle>
               <AlertDescription>
                 Searches will query the PostgreSQL database at {process.env.DB_HOSTNAME || 'rxprescribers.com'}.
+                {clerkToken ? ' Authentication token available.' : ' No authentication token available.'}
               </AlertDescription>
             </Alert>
 
