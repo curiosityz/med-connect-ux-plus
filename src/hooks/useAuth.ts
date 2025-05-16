@@ -1,15 +1,14 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Provider as AuthProvider, SignInWithPasswordCredentials, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { apiClient } from '@/lib/api-client'; // Import the actual API client
 
-async function syncUserToCustomBackend(user: User): Promise<void> {
+async function syncUserToCustomBackend(user: User, token: string | null): Promise<void> {
   try {
     const response = await apiClient.syncUser({
       supabase_user_id: user.id,
       email: user.email,
-    });
+    }, token);
     console.log('User sync response:', response);
     // Handle response, e.g., update local state or show notification
     if (!response.success) {
@@ -21,9 +20,9 @@ async function syncUserToCustomBackend(user: User): Promise<void> {
   }
 }
 
-async function fetchUserMembershipTier(userId: string): Promise<MembershipTier> {
+async function fetchUserMembershipTier(userId: string, token: string | null): Promise<MembershipTier> {
   try {
-    const response = await apiClient.fetchUserMembership(userId);
+    const response = await apiClient.fetchUserMembership(userId, token);
     console.log('Membership tier response:', response);
     return response.membershipTier || 'basic'; // Default to 'basic' if not found or on error
   } catch (error) {
@@ -43,8 +42,11 @@ export function useAuth() {
   const handleUserSession = useCallback(async (sessionUser: User | null) => {
     setUser(sessionUser);
     if (sessionUser) {
-      await syncUserToCustomBackend(sessionUser);
-      const tier = await fetchUserMembershipTier(sessionUser.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
+      
+      await syncUserToCustomBackend(sessionUser, token);
+      const tier = await fetchUserMembershipTier(sessionUser.id, token);
       setMembershipTier(tier);
     } else {
       setMembershipTier(null);
