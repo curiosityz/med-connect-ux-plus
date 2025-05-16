@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import './ProviderSearch.css';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,18 +58,18 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   selectedInsurances, onSelectedInsurancesChange,
   minRating, onMinRatingChange
 }) => {
-  // Always call these hooks unconditionally at the top level
+  // Always call hooks unconditionally at the top level
   const { membershipTier, loading: authLoading } = useAuth();
   const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
   
-  // Initialize all state variables, regardless of conditions
+  // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
   const debouncedDrugInput = useDebounce(drugInput, 300);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  // Get token on mount and when auth changes - no conditions
+  // Get token on mount and when auth changes
   useEffect(() => {
     const loadToken = async () => {
       try {
@@ -85,7 +84,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     loadToken();
   }, [getToken]);
 
-  // Always define this value, don't make it conditional
+  // Define this value unconditionally
   const isLoadingSuggestions = searchState.isLoading && drugInput.length > 0 && showSuggestionsDropdown;
   const drugSuggestionsFromContext = searchState.suggestions || [];
 
@@ -113,10 +112,10 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     setDrugInput(drugName);
   }, [drugName]);
 
-  // Compute primaryLocationZip consistently
+  // Compute primaryLocationZip unconditionally
   const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
 
-  // Define all handler functions consistently
+  // Define all handler functions
   const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDrugInput(value);
@@ -155,9 +154,8 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     onSelectedInsurancesChange(newSelection);
   };
 
-  // Create a renderLocationInput function that always returns JSX
+  // Location input rendering - always define a component outside of the main component return
   const renderLocationInput = () => {
-    // Always define renderLocationInput output regardless of conditions
     if (authLoading) {
       return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
     }
@@ -201,6 +199,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     );
   };
 
+  // Always render with all hooks consistently used
   return (
     <details className="provider-search-details" open>
       <summary className="provider-search-summary">Search Filters</summary>
@@ -368,7 +367,6 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
              </div>
            )}
          </div>
-
 
         <div className="sm:col-span-1 md:col-span-2">
           <Label htmlFor="minRating" className="input-label">Min. Rating (1-5)</Label>
