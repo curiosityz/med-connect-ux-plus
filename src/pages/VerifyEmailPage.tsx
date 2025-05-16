@@ -32,8 +32,8 @@ const VerifyEmailPage = () => {
       try {
         setVerificationStatus('loading');
         
-        // Use the verification API with the correct structure
-        await client.verifyToken(token);
+        // Use the correct verification method for the token
+        await client.verify({ token });
         
         setVerificationStatus('success');
         toast({
