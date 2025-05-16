@@ -2,7 +2,7 @@
 import { useAuth as useClerkBaseAuth, useSession } from '@clerk/clerk-react';
 
 export const useClerkAuth = () => {
-  // Use the renamed import to avoid recursion
+  // Always destructure the values to avoid potential issues with conditional hook usage
   const { userId, isLoaded } = useClerkBaseAuth();
   const { session } = useSession();
   

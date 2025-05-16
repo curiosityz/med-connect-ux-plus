@@ -17,7 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUser } from '@clerk/clerk-react';
 
 const ProviderSearchPage = () => {
-  // Use both our custom auth hook and Clerk's useUser hook
+  // Always call hooks at the top level, unconditionally
   const { membershipTier, loading: authLoading } = useAuth();
   const { isSignedIn, isLoaded: clerkLoaded } = useUser();
   const { getToken } = useClerkAuth();
@@ -37,7 +37,7 @@ const ProviderSearchPage = () => {
     pagination,
   } = searchState;
 
-  // Local state ONLY for the location input field
+  // Local state for UI
   const [localLocationInput, setLocalLocationInput] = useState('');
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [clerkToken, setClerkToken] = useState<string | null>(null);
@@ -74,17 +74,11 @@ const ProviderSearchPage = () => {
     }
   }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip, localLocationInput]);
 
-  // Redirect to login if not authenticated - checking both auth systems
-  if (!authLoading && clerkLoaded && !isSignedIn) {
-    return <Navigate to="/auth?redirect=/find-providers" replace />;
-  }
-
-  // Handlers for ProviderSearch component
+  // Handlers for ProviderSearch component - all defined unconditionally
   const handleDrugNameChange = useCallback((value: string) => {
     updateFilters({ drugName: value });
   }, [updateFilters]);
 
-  // Location input only updates local state now
   const handleLocationInputChange = useCallback((value: string) => {
     setLocalLocationInput(value);
   }, []);
@@ -166,6 +160,12 @@ const ProviderSearchPage = () => {
     return !!localLocationInput.trim();
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);
 
+  // Handle authentication redirect early - but AFTER all hooks are called
+  const shouldRedirect = !authLoading && clerkLoaded && !isSignedIn;
+
+  if (shouldRedirect) {
+    return <Navigate to="/auth?redirect=/find-providers" replace />;
+  }
 
   return (
     <div className="provider-search-container">
