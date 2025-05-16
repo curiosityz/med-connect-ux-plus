@@ -1,37 +1,68 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MainNavigation from "@/components/MainNavigation";
 import Footer from "@/components/Footer";
-import { providers } from "@/data/mockData";
-import ProviderCard from "@/components/ProviderCard";
+import { ProviderCard } from "@/components/ProviderCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+
+interface Provider {
+  id: string;
+  npi: string;
+  name: string;
+  title?: string;
+  specialties: string[];
+  location?: string;
+  city?: string;
+  state?: string;
+  rating?: number;
+  review_count?: number;
+  availability?: string;
+  image_url?: string;
+  bio?: string;
+}
 
 const ProvidersPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   
+  // Fetch providers from Supabase
+  const { data: providers, isLoading, error } = useQuery({
+    queryKey: ['providers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('*');
+      
+      if (error) throw error;
+      return data as Provider[];
+    }
+  });
+  
   // Extract unique specialties
-  const allSpecialties = providers.flatMap(provider => provider.specialties);
+  const allSpecialties = providers ? providers.flatMap(provider => provider.specialties || []) : [];
   const uniqueSpecialties = Array.from(new Set(allSpecialties));
   
   // Filter providers based on search and specialty filters
-  const filteredProviders = providers.filter(provider => {
+  const filteredProviders = providers ? providers.filter(provider => {
     const matchesSearch = 
       searchQuery === "" || 
       provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.title.toLowerCase().includes(searchQuery.toLowerCase());
+      (provider.title && provider.title.toLowerCase().includes(searchQuery.toLowerCase()));
       
     const matchesSpecialty = 
       selectedSpecialties.length === 0 || 
-      provider.specialties.some(specialty => 
+      provider.specialties?.some(specialty => 
         selectedSpecialties.includes(specialty)
       );
       
     return matchesSearch && matchesSpecialty;
-  });
+  }) : [];
   
   const handleSpecialtyChange = (specialty: string) => {
     setSelectedSpecialties(prev => 
@@ -40,6 +71,49 @@ const ProvidersPage = () => {
         : [...prev, specialty]
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <MainNavigation />
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="md:col-span-1">
+              <Skeleton className="h-64 w-full" />
+            </div>
+            <div className="md:col-span-3">
+              <Skeleton className="h-12 w-3/4 mb-6" />
+              <div className="grid md:grid-cols-2 gap-6">
+                {[1, 2, 3, 4].map(i => (
+                  <Skeleton key={i} className="h-64 w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <MainNavigation />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Providers</h2>
+          <p className="mb-8">There was a problem loading provider data.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-medblue-600 text-white px-4 py-2 rounded hover:bg-medblue-700"
+          >
+            Try Again
+          </button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -112,7 +186,7 @@ const ProvidersPage = () => {
                 {filteredProviders.length > 0 ? (
                   <div className="grid md:grid-cols-2 gap-6">
                     {filteredProviders.map((provider) => (
-                      <ProviderCard key={provider.id} {...provider} />
+                      <ProviderCard key={provider.id} provider={provider} />
                     ))}
                   </div>
                 ) : (

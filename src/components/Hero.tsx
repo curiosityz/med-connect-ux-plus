@@ -3,8 +3,20 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const Hero = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/find-providers?drug=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   return (
     <section className="py-20 bg-gradient-to-b from-medblue-100 to-white">
       <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
@@ -18,14 +30,14 @@ const Hero = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4 animate-fade-in" style={{animationDelay: "0.3s"}}>
             <Button asChild size="lg" className="bg-medblue-600 hover:bg-medblue-700 text-lg font-medium">
-              <Link to="/medications">Find Medication Prescribers</Link>
+              <Link to="/find-providers">Find Medication Prescribers</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="text-lg font-medium">
               <Link to="/find-providers">Advanced Provider Search</Link>
             </Button>
           </div>
           
-          <div className="relative mt-8 max-w-md animate-fade-in" style={{animationDelay: "0.4s"}}>
+          <form onSubmit={handleSearchSubmit} className="relative mt-8 max-w-md animate-fade-in" style={{animationDelay: "0.4s"}}>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
@@ -33,8 +45,17 @@ const Hero = () => {
               type="text"
               placeholder="Search medications..."
               className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-medblue-500 focus:border-medblue-500"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+            <Button 
+              type="submit" 
+              className="absolute right-1 top-1 bottom-1 px-3 bg-medblue-600 hover:bg-medblue-700"
+              disabled={!searchQuery.trim()}
+            >
+              Search
+            </Button>
+          </form>
         </div>
         
         <div className="hidden md:block">
