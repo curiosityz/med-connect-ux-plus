@@ -38,9 +38,10 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         limit: 10
       };
       
-      // Call API with token from our auth system
-      // We'll let the API client handle the token passed from the caller
-      const response = await apiClient.findProviders(searchParams, searchState.token);
+      // Get token directly from filters
+      const token = filters.token;
+      
+      const response = await apiClient.findProviders(searchParams, token);
       
       dispatch({
         type: loadMore ? 'SEARCH_MORE_SUCCESS' : 'SEARCH_SUCCESS',
@@ -74,7 +75,6 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return Promise.resolve();
   };
 
-  // Update to accept token parameter  
   const fetchSuggestions = async (query: string, token?: string | null) => {
     if (!query || query.length < 2) return;
     

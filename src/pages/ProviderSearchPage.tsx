@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
@@ -18,7 +19,7 @@ const ProviderSearchPage = () => {
   // Use both our custom auth hook and Clerk's useUser hook
   const { membershipTier, loading: authLoading } = useAuth();
   const { isSignedIn, isLoaded: clerkLoaded } = useUser();
-  const { token: clerkToken } = useClerkAuth();
+  const { getToken } = useClerkAuth();
   const navigate = useNavigate();
   const {
     searchState,
@@ -38,6 +39,21 @@ const ProviderSearchPage = () => {
   // Local state ONLY for the location input field
   const [localLocationInput, setLocalLocationInput] = useState('');
   const [searchAttempted, setSearchAttempted] = useState(false);
+  const [clerkToken, setClerkToken] = useState<string | null>(null);
+
+  // Get token on mount and when auth changes
+  useEffect(() => {
+    const loadToken = async () => {
+      if (isSignedIn && clerkLoaded) {
+        const newToken = await getToken();
+        setClerkToken(newToken);
+      } else {
+        setClerkToken(null);
+      }
+    };
+    
+    loadToken();
+  }, [getToken, isSignedIn, clerkLoaded]);
 
   // Memoized primary location zip
   const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
@@ -97,7 +113,7 @@ const ProviderSearchPage = () => {
   }, [updateFilters]);
 
   // Handler for the explicit search button
-  const handleSearchClick = () => {
+  const handleSearchClick = async () => {
       setSearchAttempted(true);
       let finalZipCode: string | undefined = undefined;
       let finalLocationName: string | undefined = undefined;
@@ -130,17 +146,12 @@ const ProviderSearchPage = () => {
           ...filters, // Get other filters from context state
           zipCode: finalZipCode,
           locationName: finalLocationName,
+          token: clerkToken // Pass the token directly in filters
       };
 
       // Perform the search if criteria are met
       if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
-         // Pass the Clerk token to performSearch by updating the token in search state
-         updateFilters({ token: clerkToken || null });
-         
-         // Small delay to ensure the token is updated in the state
-         setTimeout(() => {
-           performSearch(filtersForSearch, false); // false = not load more
-         }, 100);
+         performSearch(filtersForSearch, false); // false = not load more
       } else {
          console.log("Search criteria not met for API call.");
          // Optionally show a message if criteria aren't met on click

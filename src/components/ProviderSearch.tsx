@@ -59,7 +59,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
 }) => {
   const { membershipTier, loading: authLoading } = useAuth();
   // Add Clerk auth to get token
-  const { token: clerkToken } = useClerkAuth();
+  const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
   // Assuming searchState has a specific isLoadingSuggestions or use global isLoading for now
   const { suggestions: drugSuggestionsFromContext, isLoading: isContextLoading } = searchState;
@@ -67,18 +67,34 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   const [drugInput, setDrugInput] = useState(drugName);
   const debouncedDrugInput = useDebounce(drugInput, 300);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+
+  // Get token on mount and when auth changes
+  useEffect(() => {
+    const loadToken = async () => {
+      const newToken = await getToken();
+      setToken(newToken);
+    };
+    
+    loadToken();
+  }, [getToken]);
 
   // isLoadingSuggestions can be derived from context's global loading or a specific one
   const isLoadingSuggestions = isContextLoading && drugInput.length > 0 && showSuggestionsDropdown;
 
   useEffect(() => {
-    if (debouncedDrugInput && debouncedDrugInput.length >= 2) {
-      fetchSuggestions(debouncedDrugInput, clerkToken);
-      // setShowSuggestionsDropdown(true); // Managed by focus/blur and input length now
-    } else {
-      setShowSuggestionsDropdown(false);
-    }
-  }, [debouncedDrugInput, fetchSuggestions, clerkToken]);
+    const fetchSuggestionsWithToken = async () => {
+      if (debouncedDrugInput && debouncedDrugInput.length >= 2) {
+        const currentToken = await getToken();
+        fetchSuggestions(debouncedDrugInput, currentToken);
+        setShowSuggestionsDropdown(true);
+      } else {
+        setShowSuggestionsDropdown(false);
+      }
+    };
+    
+    fetchSuggestionsWithToken();
+  }, [debouncedDrugInput, fetchSuggestions, getToken]);
 
   useEffect(() => {
     setDrugInput(drugName);
