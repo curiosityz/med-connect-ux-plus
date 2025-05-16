@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import './ProviderSearch.css';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,7 +47,7 @@ interface ProviderSearchProps {
   onSortByChange: (value: string) => void;
   onSelectedInsurancesChange: (value: string[]) => void;
   onMinRatingChange: (value: number) => void;
-  disableAutoSearch?: boolean; // New prop
+  disableAutoSearch?: boolean;
 }
 
 export const ProviderSearch: React.FC<ProviderSearchProps> = ({
@@ -66,7 +67,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   onSortByChange,
   onSelectedInsurancesChange,
   onMinRatingChange,
-  disableAutoSearch = false, // Default to false for backward compatibility
+  disableAutoSearch = false,
 }) => {
   // Always call hooks unconditionally at the top level
   const { membershipTier, loading: authLoading } = useAuth();
@@ -75,7 +76,6 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   
   // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
-  // Remove debounced input to prevent auto-triggering searches
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [manualSuggestionSearch, setManualSuggestionSearch] = useState(false);
@@ -132,7 +132,6 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDrugInput(value);
-    // Don't automatically show suggestions as user types
   };
 
   const handleDrugSuggestionSelect = (suggestion: string) => {
@@ -150,14 +149,12 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     }, 150);
   };
   
-  // Modified to trigger manual suggestion search
   const handleDrugInputFocus = () => {
-    if (drugInput.length >= 2) {
+    if (drugInput.length >= 2 && !disableAutoSearch) {
       setManualSuggestionSearch(true);
     }
   };
   
-  // New function to manually request suggestions
   const handleShowSuggestions = (e: React.MouseEvent) => {
     e.preventDefault();
     if (drugInput.length >= 2) {
@@ -172,7 +169,13 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     onSelectedInsurancesChange(newSelection);
   };
 
-  // Location input rendering - always define a component outside of the main component return
+  // Handle manual location input change
+  const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    onLocationInputChange(value);
+  };
+
+  // Location input rendering
   const renderLocationInput = () => {
     if (authLoading) {
       return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
@@ -206,7 +209,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           id="locationInput"
           type="text"
           value={locationInput}
-          onChange={(e) => onLocationInputChange(e.target.value)}
+          onChange={handleLocationInputChange}
           placeholder={placeholderText}
           disabled={authLoading}
         />
@@ -272,6 +275,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
 
         {renderLocationInput()}
 
+        {/* Remaining form fields... */}
         <div className="sm:col-span-1">
           <Label htmlFor="radius" className="input-label">Search Radius (miles)</Label>
           <Input
@@ -321,7 +325,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           </Select>
         </div>
 
-        {/* Insurance Filter using Popover + Command */}
+        {/* Insurance Filter */}
         <div className="sm:col-span-2 md:col-span-2">
            <Label className="input-label">Insurance Accepted</Label>
            <Popover>
@@ -351,7 +355,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
                      {MOCK_INSURANCES.map((insurance) => (
                        <CommandItem
                          key={insurance.id}
-                         value={insurance.label} // Use label for searching
+                         value={insurance.label}
                          onSelect={() => {
                            handleInsuranceChange(!selectedInsurances.includes(insurance.id), insurance.id);
                          }}
@@ -362,7 +366,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
                              "mr-2 h-4 w-4",
                              selectedInsurances.includes(insurance.id)
                                ? "opacity-100"
-                               : "opacity-0" // Hide checkbox, show checkmark via CommandItem's indicator
+                               : "opacity-0"
                            )}
                            checked={selectedInsurances.includes(insurance.id)}
                          />

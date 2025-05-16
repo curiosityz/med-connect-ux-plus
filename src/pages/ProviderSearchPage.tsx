@@ -114,50 +114,52 @@ const ProviderSearchPage = () => {
 
   // Handler for the explicit search button - ONLY place where search is triggered
   const handleSearchClick = async () => {
-      setSearchAttempted(true);
-      let finalZipCode: string | undefined = undefined;
-      let finalLocationName: string | undefined = undefined;
+    setSearchAttempted(true);
+    let finalZipCode: string | undefined = undefined;
+    let finalLocationName: string | undefined = undefined;
 
-      // Determine final zip/location based on tier and local input *at time of click*
-      switch (membershipTier) {
-          case 'basic':
-              finalZipCode = primaryLocationZip || undefined;
-              break;
-          case 'premium':
-              if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
-                  finalZipCode = localLocationInput;
-              } else if (localLocationInput) {
-                  finalLocationName = localLocationInput;
-              }
-              break;
-          case 'expert':
-          default:
-              if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
-                 finalZipCode = localLocationInput;
-              } else {
-                 console.warn("Expert tier requires a valid zip code for location search.");
-              }
-              break;
+    // Determine final zip/location based on tier and local input *at time of click*
+    switch (membershipTier) {
+      case 'basic':
+        finalZipCode = primaryLocationZip || undefined;
+        break;
+      case 'premium':
+        if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
+          finalZipCode = localLocationInput;
+        } else if (localLocationInput) {
+          finalLocationName = localLocationInput;
+        }
+        break;
+      case 'expert':
+      default:
+        if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
+          finalZipCode = localLocationInput;
+        } else {
+          console.warn("Expert tier requires a valid zip code for location search.");
+        }
+        break;
+    }
+
+    // Create the final filter object to send to performSearch
+    const filtersForSearch: SearchFilters = {
+      ...filters, // Get other filters from context state
+      zipCode: finalZipCode,
+      locationName: finalLocationName,
+      token: clerkToken // Pass the token directly in filters
+    };
+
+    console.log("Search initiated with filters:", filtersForSearch);
+
+    // Perform the search if criteria are met
+    if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
+      try {
+        await performSearch(filtersForSearch, false); // false = not load more
+      } catch (error) {
+        console.error('Error performing search:', error);
       }
-
-      // Create the final filter object to send to performSearch
-      const filtersForSearch: SearchFilters = {
-          ...filters, // Get other filters from context state
-          zipCode: finalZipCode,
-          locationName: finalLocationName,
-          token: clerkToken // Pass the token directly in filters
-      };
-
-      // Perform the search if criteria are met
-      if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
-         try {
-           performSearch(filtersForSearch, false); // false = not load more
-         } catch (error) {
-           console.error('Error performing search:', error);
-         }
-      } else {
-         console.log("Search criteria not met for API call.");
-      }
+    } else {
+      console.log("Search criteria not met for API call.");
+    }
   };
 
   // Determine if the search criteria are met (for enabling search button)
@@ -218,15 +220,15 @@ const ProviderSearchPage = () => {
 
             {/* Explicit Search Button */}
             <div className="mt-6 text-center">
-                <Button
-                    onClick={handleSearchClick}
-                    disabled={!isSearchCriteriaMet || isLoading}
-                    size="lg"
-                    className="px-8 py-3 text-lg" // Make button more prominent
-                >
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Search Providers
-                </Button>
+              <Button
+                onClick={handleSearchClick}
+                disabled={!isSearchCriteriaMet || isLoading}
+                size="lg"
+                className="px-8 py-3 text-lg" // Make button more prominent
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Search Providers
+              </Button>
             </div>
 
             <div className="mt-8">
