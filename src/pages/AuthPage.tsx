@@ -9,6 +9,7 @@ import {
 import { Navigate, useLocation } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DirectionProvider } from '@radix-ui/react-direction';
 
 export const AuthPage: React.FC = () => {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -38,38 +39,40 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome</CardTitle>
-          <CardDescription>Sign in or create an account to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
-            </TabsList>
-            <TabsContent value="sign-in">
-              <SignIn 
-                routing="path" 
-                path="/auth"
-                signUpUrl="/auth#sign-up"
-                redirectUrl="/"
-              />
-            </TabsContent>
-            <TabsContent value="sign-up">
-              <SignUp 
-                routing="path" 
-                path="/auth"
-                signInUrl="/auth"
-                redirectUrl="/"
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+    <DirectionProvider dir="ltr">
+      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Welcome</CardTitle>
+            <CardDescription>Sign in or create an account to continue</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+                <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+              </TabsList>
+              <TabsContent value="sign-in">
+                <SignIn 
+                  routing="path" 
+                  path="/auth"
+                  signUpUrl="/auth#sign-up"
+                  redirectUrl="/"
+                />
+              </TabsContent>
+              <TabsContent value="sign-up">
+                <SignUp 
+                  routing="path" 
+                  path="/auth"
+                  signInUrl="/auth"
+                  redirectUrl="/"
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    </DirectionProvider>
   );
 };
 

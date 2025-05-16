@@ -11,21 +11,30 @@ import { apiClient, UserLocation } from '@/lib/api-client';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
+import { supabase } from '@/lib/supabase';
 
 export const ManageLocationsPage: React.FC = () => {
   const { user, loading: authLoading, membershipTier } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch user locations
+  // Fetch user locations with token
   const { data: locations = [], isLoading: locationsLoading, isError: locationsError, error: locationsFetchError } = useQuery<UserLocation[], Error>({
     queryKey: ['userLocations', user?.id],
-    queryFn: () => apiClient.getUserLocations(),
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
+      return apiClient.getUserLocations(token);
+    },
     enabled: !!user && !authLoading,
   });
 
   // Mutation for adding a location
   const addLocationMutation = useMutation<UserLocation, Error, Omit<UserLocation, 'id' | 'isPrimary'>>({
-    mutationFn: (newLocationData) => apiClient.addUserLocation(newLocationData),
+    mutationFn: async (newLocationData) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
+      return apiClient.addUserLocation(newLocationData, token);
+    },
     onSuccess: (newLocation) => {
       queryClient.invalidateQueries({ queryKey: ['userLocations', user?.id] });
       toast({ title: "Location Added", description: `"${newLocation.name}" has been saved.` });
@@ -37,7 +46,11 @@ export const ManageLocationsPage: React.FC = () => {
 
   // Mutation for deleting a location
   const deleteLocationMutation = useMutation<{ success: boolean }, Error, string>({
-    mutationFn: (locationId) => apiClient.deleteUserLocation(locationId),
+    mutationFn: async (locationId) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
+      return apiClient.deleteUserLocation(locationId, token);
+    },
     onSuccess: (data, locationId) => {
       if (data.success) {
         // Optimistically update cache before invalidating for smoother UI
@@ -57,7 +70,11 @@ export const ManageLocationsPage: React.FC = () => {
 
    // Mutation for setting primary location
    const setPrimaryLocationMutation = useMutation<{ success: boolean }, Error, string>({
-     mutationFn: (locationId) => apiClient.setPrimaryLocation(locationId),
+     mutationFn: async (locationId) => {
+       const { data: { session } } = await supabase.auth.getSession();
+       const token = session?.access_token || null;
+       return apiClient.setPrimaryLocation(locationId, token);
+     },
      onSuccess: (data, locationId) => {
        if (data.success) {
          // Optimistically update cache
@@ -74,7 +91,6 @@ export const ManageLocationsPage: React.FC = () => {
        toast({ title: "Error Updating Primary Location", description: error.message, variant: "destructive" });
      },
    });
-
 
   if (authLoading) {
     return (
