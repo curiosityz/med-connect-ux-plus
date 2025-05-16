@@ -29,34 +29,44 @@ const MOCK_INSURANCES = [
 
 type SortByType = SearchApiParams['sortBy'];
 
-interface ProviderSearchFiltersProps {
+interface ProviderSearchProps {
   drugName: string;
-  onDrugNameChange: (value: string) => void;
   locationInput: string;
-  onLocationInputChange: (value: string) => void;
   radius: number;
-  onRadiusChange: (value: number) => void;
-  minClaims: number | undefined;
-  onMinClaimsChange: (value: number | undefined) => void;
-  taxonomyClass: string | undefined;
-  onTaxonomyClassChange: (value: string | undefined) => void;
-  sortBy: SortByType;
-  onSortByChange: (value: SortByType) => void;
+  minClaims?: number;
+  taxonomyClass?: string;
+  sortBy: string;
   selectedInsurances: string[];
-  onSelectedInsurancesChange: (value: string[]) => void;
   minRating: number;
+  onDrugNameChange: (value: string) => void;
+  onLocationInputChange: (value: string) => void;
+  onRadiusChange: (value: number) => void;
+  onMinClaimsChange: (value: number | undefined) => void;
+  onTaxonomyClassChange: (value: string | undefined) => void;
+  onSortByChange: (value: string) => void;
+  onSelectedInsurancesChange: (value: string[]) => void;
   onMinRatingChange: (value: number) => void;
+  disableAutoSearch?: boolean; // New prop
 }
 
-export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
-  drugName, onDrugNameChange,
-  locationInput, onLocationInputChange,
-  radius, onRadiusChange,
-  minClaims, onMinClaimsChange,
-  taxonomyClass, onTaxonomyClassChange,
-  sortBy, onSortByChange,
-  selectedInsurances, onSelectedInsurancesChange,
-  minRating, onMinRatingChange
+export const ProviderSearch: React.FC<ProviderSearchProps> = ({
+  drugName,
+  locationInput,
+  radius,
+  minClaims,
+  taxonomyClass,
+  sortBy,
+  selectedInsurances,
+  minRating,
+  onDrugNameChange,
+  onLocationInputChange,
+  onRadiusChange,
+  onMinClaimsChange,
+  onTaxonomyClassChange,
+  onSortByChange,
+  onSelectedInsurancesChange,
+  onMinRatingChange,
+  disableAutoSearch = false, // Default to false for backward compatibility
 }) => {
   // Always call hooks unconditionally at the top level
   const { membershipTier, loading: authLoading } = useAuth();

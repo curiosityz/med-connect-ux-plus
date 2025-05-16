@@ -46,8 +46,12 @@ const ProviderSearchPage = () => {
   useEffect(() => {
     const loadToken = async () => {
       if (isSignedIn && clerkLoaded) {
-        const newToken = await getToken();
-        setClerkToken(newToken);
+        try {
+          const newToken = await getToken();
+          setClerkToken(newToken);
+        } catch (err) {
+          console.error('Failed to get authentication token:', err);
+        }
       } else {
         setClerkToken(null);
       }
@@ -74,8 +78,9 @@ const ProviderSearchPage = () => {
     }
   }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip, localLocationInput]);
 
-  // Handlers for ProviderSearch component - all defined unconditionally
+  // Handlers for ProviderSearch component - update state but DON'T trigger searches
   const handleDrugNameChange = useCallback((value: string) => {
+    // Update filter state but don't trigger search
     updateFilters({ drugName: value });
   }, [updateFilters]);
 
@@ -145,7 +150,11 @@ const ProviderSearchPage = () => {
 
       // Perform the search if criteria are met
       if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
-         performSearch(filtersForSearch, false); // false = not load more
+         try {
+           performSearch(filtersForSearch, false); // false = not load more
+         } catch (error) {
+           console.error('Error performing search:', error);
+         }
       } else {
          console.log("Search criteria not met for API call.");
       }
@@ -159,9 +168,7 @@ const ProviderSearchPage = () => {
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);
 
   // Handle authentication redirect early - but AFTER all hooks are called
-  const shouldRedirect = !authLoading && clerkLoaded && !isSignedIn;
-
-  if (shouldRedirect) {
+  if (!authLoading && clerkLoaded && !isSignedIn) {
     return <Navigate to="/auth?redirect=/find-providers" replace />;
   }
 
@@ -206,6 +213,7 @@ const ProviderSearchPage = () => {
               onSortByChange={handleSortByChange}
               onSelectedInsurancesChange={handleSelectedInsurancesChange}
               onMinRatingChange={handleMinRatingChange}
+              disableAutoSearch={true} // Disable automatic search to prevent resource exhaustion
             />
 
             {/* Explicit Search Button */}
@@ -214,12 +222,12 @@ const ProviderSearchPage = () => {
                     onClick={handleSearchClick}
                     disabled={!isSearchCriteriaMet || isLoading}
                     size="lg"
+                    className="px-8 py-3 text-lg" // Make button more prominent
                 >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Search Providers
                 </Button>
             </div>
-
 
             <div className="mt-8">
               <ProviderMap providers={providers || []} isLoading={isLoading && (!providers || providers.length === 0)} />
