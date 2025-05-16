@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainNavigation from "@/components/MainNavigation";
 import Footer from "@/components/Footer";
@@ -10,22 +9,7 @@ import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-
-interface Provider {
-  id: string;
-  npi: string;
-  name: string;
-  title?: string;
-  specialties: string[];
-  location?: string;
-  city?: string;
-  state?: string;
-  rating?: number;
-  review_count?: number;
-  availability?: string;
-  image_url?: string;
-  bio?: string;
-}
+import { Provider } from "@/lib/supabase"; // Import Provider type from supabase
 
 const ProvidersPage = () => {
   const [searchQuery, setSearchQuery] = useState("");

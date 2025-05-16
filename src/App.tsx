@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy } from 'react'; // Import Suspense and lazy
+import React, { Suspense, lazy } from 'react'; 
 import { AuthProvider } from "./contexts/AuthContext";
 import { SearchProvider } from "./contexts/SearchContext";
 import { UIProvider } from "./contexts/UIContext";
@@ -7,8 +7,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Skeleton } from '@/components/ui/skeleton'; // For fallback UI
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Skeleton } from '@/components/ui/skeleton';
 import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut } from '@clerk/clerk-react';
 
 // Lazy load page components
@@ -20,9 +20,10 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ArkansasProvidersPage = lazy(() => import("./pages/ArkansasProvidersPage"));
 const ArkansasProviderDetailPage = lazy(() => import("./pages/ArkansasProviderDetailPage"));
 const ProviderSearchPage = lazy(() => import("./pages/ProviderSearchPage"));
-const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default: module.AuthPage }))); // Adjust for named export
+const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default: module.AuthPage })));
 const ManageLocationsPage = lazy(() => import("./pages/ManageLocationsPage"));
-
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const ProvidersPage = lazy(() => import("./pages/ProvidersPage"));
 
 // Simple fallback component
 const LoadingFallback = () => (
@@ -32,7 +33,6 @@ const LoadingFallback = () => (
     <Skeleton className="h-4 w-3/4" />
   </div>
 );
-
 
 // Initialize query client with default options
 const queryClient = new QueryClient({
@@ -52,12 +52,12 @@ const App = () => (
     <ClerkLoaded>
       <AuthProvider>
         <SearchProvider>
-          <UIProvider> {/* Wrap with UIProvider */}
+          <UIProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <Suspense fallback={<LoadingFallback />}> {/* Wrap Routes with Suspense */}
+                <Suspense fallback={<LoadingFallback />}>
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/medications" element={<MedicationsPage />} />
@@ -75,7 +75,10 @@ const App = () => (
                         </SignedOut>
                       </>
                     } />
+                    <Route path="/providers" element={<ProvidersPage />} />
                     <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/auth/verify-email-address" element={<VerifyEmailPage />} />
+                    <Route path="/auth/verify" element={<VerifyEmailPage />} />
                     <Route path="/manage-locations" element={
                       <>
                         <SignedIn>
@@ -97,8 +100,5 @@ const App = () => (
     </ClerkLoaded>
   </QueryClientProvider>
 );
-
-// Add missing import
-import { Navigate } from 'react-router-dom';
 
 export default App;
