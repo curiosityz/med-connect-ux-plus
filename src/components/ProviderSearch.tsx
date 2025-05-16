@@ -65,9 +65,10 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   
   // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
-  const debouncedDrugInput = useDebounce(drugInput, 300);
+  // Remove debounced input to prevent auto-triggering searches
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [manualSuggestionSearch, setManualSuggestionSearch] = useState(false);
 
   // Get token on mount and when auth changes
   useEffect(() => {
@@ -88,24 +89,26 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   const isLoadingSuggestions = searchState.isLoading && drugInput.length > 0 && showSuggestionsDropdown;
   const drugSuggestionsFromContext = searchState.suggestions || [];
 
-  // Effect to fetch suggestions based on drug input
+  // Only fetch suggestions when explicitly requested
   useEffect(() => {
     const fetchSuggestionsWithToken = async () => {
-      if (debouncedDrugInput && debouncedDrugInput.length >= 2) {
+      if (drugInput.length >= 2 && manualSuggestionSearch) {
         try {
           const currentToken = await getToken();
-          await fetchSuggestions(debouncedDrugInput, currentToken);
+          await fetchSuggestions(drugInput, currentToken);
           setShowSuggestionsDropdown(true);
+          setManualSuggestionSearch(false);
         } catch (error) {
           console.error("Error fetching suggestions:", error);
+          setManualSuggestionSearch(false);
         }
-      } else {
-        setShowSuggestionsDropdown(false);
       }
     };
     
-    fetchSuggestionsWithToken();
-  }, [debouncedDrugInput, fetchSuggestions, getToken]);
+    if (manualSuggestionSearch) {
+      fetchSuggestionsWithToken();
+    }
+  }, [drugInput, fetchSuggestions, getToken, manualSuggestionSearch]);
 
   // Sync with parent state
   useEffect(() => {
@@ -119,11 +122,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDrugInput(value);
-    if (value.length >= 2) {
-      setShowSuggestionsDropdown(true);
-    } else {
-      setShowSuggestionsDropdown(false);
-    }
+    // Don't automatically show suggestions as user types
   };
 
   const handleDrugSuggestionSelect = (suggestion: string) => {
@@ -141,9 +140,18 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
     }, 150);
   };
   
+  // Modified to trigger manual suggestion search
   const handleDrugInputFocus = () => {
-    if (drugInput.length >= 2 && drugSuggestionsFromContext.length > 0) {
-        setShowSuggestionsDropdown(true);
+    if (drugInput.length >= 2) {
+      setManualSuggestionSearch(true);
+    }
+  };
+  
+  // New function to manually request suggestions
+  const handleShowSuggestions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (drugInput.length >= 2) {
+      setManualSuggestionSearch(true);
     }
   };
 
@@ -206,16 +214,25 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
       <div className="provider-search-grid">
         <div className="relative sm:col-span-1">
           <Label htmlFor="drugName" className="input-label">Drug Name</Label>
-          <Input
-            id="drugName"
-            type="text"
-            value={drugInput}
-            onChange={handleDrugInputChange}
-            onFocus={handleDrugInputFocus}
-            onBlur={handleDrugInputBlur}
-            placeholder="e.g., Lisinopril"
-            autoComplete="off"
-          />
+          <div className="flex">
+            <Input
+              id="drugName"
+              type="text"
+              className="flex-1 rounded-r-none"
+              value={drugInput}
+              onChange={handleDrugInputChange}
+              onFocus={handleDrugInputFocus}
+              onBlur={handleDrugInputBlur}
+              placeholder="e.g., Lisinopril"
+              autoComplete="off"
+            />
+            <Button 
+              variant="outline" 
+              className="rounded-l-none border-l-0" 
+              onClick={handleShowSuggestions}>
+              Suggest
+            </Button>
+          </div>
           {showSuggestionsDropdown && (
             <div className="suggestion-dropdown">
               {isLoadingSuggestions && (
@@ -223,7 +240,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
                 </div>
               )}
-              {!isLoadingSuggestions && (!drugSuggestionsFromContext || drugSuggestionsFromContext.length === 0) && debouncedDrugInput.length >= 2 && (
+              {!isLoadingSuggestions && (!drugSuggestionsFromContext || drugSuggestionsFromContext.length === 0) && (
                  <div className="p-2 text-center text-muted-foreground">No suggestions found.</div>
               )}
               {!isLoadingSuggestions && drugSuggestionsFromContext && drugSuggestionsFromContext.length > 0 && (

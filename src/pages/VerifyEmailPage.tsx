@@ -32,7 +32,7 @@ const VerifyEmailPage: React.FC = () => {
 
         // Use clerk instance to verify the token
         if (clerk && clerk.client && isLoaded) {
-          // Use the correct method to verify the email token
+          // Fix: Use the correct method to verify the email token
           await clerk.client.sessions.attemptEmailAddressVerification({ token });
           setVerificationState('success');
           

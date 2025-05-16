@@ -107,7 +107,7 @@ const ProviderSearchPage = () => {
     updateFilters({ minRating: value });
   }, [updateFilters]);
 
-  // Handler for the explicit search button
+  // Handler for the explicit search button - ONLY place where search is triggered
   const handleSearchClick = async () => {
       setSearchAttempted(true);
       let finalZipCode: string | undefined = undefined;
@@ -131,7 +131,6 @@ const ProviderSearchPage = () => {
                  finalZipCode = localLocationInput;
               } else {
                  console.warn("Expert tier requires a valid zip code for location search.");
-                 // Optionally show error
               }
               break;
       }
@@ -149,7 +148,6 @@ const ProviderSearchPage = () => {
          performSearch(filtersForSearch, false); // false = not load more
       } else {
          console.log("Search criteria not met for API call.");
-         // Optionally show a message if criteria aren't met on click
       }
   };
 
