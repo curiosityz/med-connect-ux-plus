@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
@@ -8,14 +9,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSearch } from '@/contexts/SearchContext';
 import { SearchFilters } from '@/reducers/searchReducer';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const ProviderSearchPage = () => {
-  const { membershipTier, loading: authLoading } = useAuth();
+  const { user, membershipTier, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const {
     searchState,
     updateFilters,
-    performSearch, // Get performSearch from context
+    performSearch,
     loadMoreResults,
   } = useSearch();
 
@@ -23,7 +27,7 @@ const ProviderSearchPage = () => {
     results: providers,
     isLoading,
     error,
-    filters, // Get current filters from context
+    filters,
     pagination,
   } = searchState;
 
@@ -32,7 +36,7 @@ const ProviderSearchPage = () => {
   const [searchAttempted, setSearchAttempted] = useState(false);
 
   // Memoized primary location zip
-  const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]); // Example
+  const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
 
   // Effect to SYNC local input state FROM context/auth state when relevant parts change
   useEffect(() => {
@@ -49,6 +53,10 @@ const ProviderSearchPage = () => {
     }
   }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip]);
 
+  // Redirect to login if not authenticated
+  if (!authLoading && !user) {
+    return <Navigate to="/auth?redirect=/providers/search" replace />;
+  }
 
   // Handlers for ProviderSearch component
   const handleDrugNameChange = useCallback((value: string) => {
@@ -121,7 +129,6 @@ const ProviderSearchPage = () => {
       };
 
       // Perform the search if criteria are met
-      // The context state (including filters) will be updated by performSearch upon successful completion.
       if (filtersForSearch.drugName && filtersForSearch.drugName.length >= 2 && (finalZipCode || finalLocationName)) {
          performSearch(filtersForSearch, false); // false = not load more
       } else {
@@ -147,52 +154,68 @@ const ProviderSearchPage = () => {
           Find Medication Providers
         </h1>
 
-        <ProviderSearch
-          drugName={filters.drugName || ''}
-          locationInput={localLocationInput} // Controlled input uses local state
-          radius={filters.radius || 10}
-          minClaims={filters.minClaims}
-          taxonomyClass={filters.taxonomyClass}
-          sortBy={filters.sortBy || 'distance'}
-          selectedInsurances={filters.acceptedInsurance || []}
-          minRating={filters.minRating || 0}
-          onDrugNameChange={handleDrugNameChange}
-          onLocationInputChange={handleLocationInputChange} // Updates local state only
-          onRadiusChange={handleRadiusChange}
-          onMinClaimsChange={handleMinClaimsChange}
-          onTaxonomyClassChange={handleTaxonomyClassChange}
-          onSortByChange={handleSortByChange}
-          onSelectedInsurancesChange={handleSelectedInsurancesChange}
-          onMinRatingChange={handleMinRatingChange}
-        />
+        {authLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
+            <Alert className="mb-6">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Connected to Database</AlertTitle>
+              <AlertDescription>
+                Searches will query the PostgreSQL database at {process.env.DB_HOSTNAME || 'rxprescribers.com'}.
+              </AlertDescription>
+            </Alert>
 
-        {/* Explicit Search Button */}
-        <div className="mt-6 text-center">
-            <Button
-                onClick={handleSearchClick}
-                disabled={!isSearchCriteriaMet || isLoading}
-                size="lg"
-            >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Search Providers
-            </Button>
-        </div>
+            <ProviderSearch
+              drugName={filters.drugName || ''}
+              locationInput={localLocationInput}
+              radius={filters.radius || 10}
+              minClaims={filters.minClaims}
+              taxonomyClass={filters.taxonomyClass}
+              sortBy={filters.sortBy || 'distance'}
+              selectedInsurances={filters.acceptedInsurance || []}
+              minRating={filters.minRating || 0}
+              onDrugNameChange={handleDrugNameChange}
+              onLocationInputChange={handleLocationInputChange}
+              onRadiusChange={handleRadiusChange}
+              onMinClaimsChange={handleMinClaimsChange}
+              onTaxonomyClassChange={handleTaxonomyClassChange}
+              onSortByChange={handleSortByChange}
+              onSelectedInsurancesChange={handleSelectedInsurancesChange}
+              onMinRatingChange={handleMinRatingChange}
+            />
+
+            {/* Explicit Search Button */}
+            <div className="mt-6 text-center">
+                <Button
+                    onClick={handleSearchClick}
+                    disabled={!isSearchCriteriaMet || isLoading}
+                    size="lg"
+                >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Search Providers
+                </Button>
+            </div>
 
 
-        <div className="mt-8">
-          <ProviderMap providers={providers || []} isLoading={isLoading && (!providers || providers.length === 0)} />
-        </div>
+            <div className="mt-8">
+              <ProviderMap providers={providers || []} isLoading={isLoading && (!providers || providers.length === 0)} />
+            </div>
 
-        <ProviderResultsList
-          providers={providers || []}
-          isLoading={isLoading && !pagination.nextCursor}
-          isError={!!error}
-          error={error}
-          fetchNextPage={loadMoreResults}
-          hasNextPage={!!pagination.nextCursor}
-          isFetchingNextPage={isLoading && !!pagination.nextCursor}
-          searchAttempted={searchAttempted && isSearchCriteriaMet}
-        />
+            <ProviderResultsList
+              providers={providers || []}
+              isLoading={isLoading && !pagination.nextCursor}
+              isError={!!error}
+              error={error}
+              fetchNextPage={loadMoreResults}
+              hasNextPage={!!pagination.nextCursor}
+              isFetchingNextPage={isLoading && !!pagination.nextCursor}
+              searchAttempted={searchAttempted && isSearchCriteriaMet}
+            />
+          </>
+        )}
       </main>
 
       <Footer />
