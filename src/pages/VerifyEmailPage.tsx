@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -29,9 +30,9 @@ const VerifyEmailPage: React.FC = () => {
           return;
         }
 
-        // Use clerk directly to verify the token
-        if (clerk) {
-          await clerk.verifyToken({ token });
+        // Use clerk instance to verify the token
+        if (clerk.client && isLoaded) {
+          await clerk.client.verifyToken({ token });
           setVerificationState('success');
           
           // Redirect to home page after successful verification after a delay

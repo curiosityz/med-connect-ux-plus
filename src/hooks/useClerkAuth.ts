@@ -2,7 +2,8 @@
 import { useAuth as useClerkBaseAuth, useSession } from '@clerk/clerk-react';
 
 export const useClerkAuth = () => {
-  const clerkAuth = useClerkBaseAuth(); // Renamed from useAuth to avoid recursion
+  // Use the renamed import to avoid recursion
+  const clerkBaseAuth = useClerkBaseAuth();
   const { session } = useSession();
   
   const getToken = async () => {
@@ -18,8 +19,8 @@ export const useClerkAuth = () => {
   };
 
   return {
-    isAuthenticated: clerkAuth.isLoaded && !!clerkAuth.userId,
+    isAuthenticated: clerkBaseAuth.isLoaded && !!clerkBaseAuth.userId,
     getToken,
-    isLoading: !clerkAuth.isLoaded
+    isLoading: !clerkBaseAuth.isLoaded
   };
 };

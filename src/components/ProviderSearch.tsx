@@ -61,33 +61,42 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   // Add Clerk auth to get token
   const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
-  // Assuming searchState has a specific isLoadingSuggestions or use global isLoading for now
-  const { suggestions: drugSuggestionsFromContext, isLoading: isContextLoading } = searchState;
-
+  
+  // Always initialize all state variables, regardless of conditions
   const [drugInput, setDrugInput] = useState(drugName);
   const debouncedDrugInput = useDebounce(drugInput, 300);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  // Get token on mount and when auth changes
+  // Get token on mount and when auth changes - no conditions
   useEffect(() => {
     const loadToken = async () => {
-      const newToken = await getToken();
-      setToken(newToken);
+      try {
+        const newToken = await getToken();
+        setToken(newToken);
+      } catch (error) {
+        console.error("Error getting token:", error);
+        setToken(null);
+      }
     };
     
     loadToken();
   }, [getToken]);
 
   // isLoadingSuggestions can be derived from context's global loading or a specific one
-  const isLoadingSuggestions = isContextLoading && drugInput.length > 0 && showSuggestionsDropdown;
+  const isLoadingSuggestions = searchState.isLoading && drugInput.length > 0 && showSuggestionsDropdown;
+  const drugSuggestionsFromContext = searchState.suggestions || [];
 
   useEffect(() => {
     const fetchSuggestionsWithToken = async () => {
       if (debouncedDrugInput && debouncedDrugInput.length >= 2) {
-        const currentToken = await getToken();
-        fetchSuggestions(debouncedDrugInput, currentToken);
-        setShowSuggestionsDropdown(true);
+        try {
+          const currentToken = await getToken();
+          await fetchSuggestions(debouncedDrugInput, currentToken);
+          setShowSuggestionsDropdown(true);
+        } catch (error) {
+          console.error("Error fetching suggestions:", error);
+        }
       } else {
         setShowSuggestionsDropdown(false);
       }
@@ -102,6 +111,8 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
 
   const primaryLocationZip = useMemo(() => (membershipTier === 'basic' ? "90210" : null), [membershipTier]);
 
+  // Keep all event handlers consistent across renders
+
   const handleDrugInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDrugInput(value);
@@ -109,8 +120,6 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
       setShowSuggestionsDropdown(true);
     } else {
       setShowSuggestionsDropdown(false);
-      // Also clear the actual filter if input is too short
-      // onDrugNameChange(""); // This might be too aggressive, consider UX
     }
   };
 
@@ -130,11 +139,10 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   };
   
   const handleDrugInputFocus = () => {
-    if (drugInput.length >= 2 && drugSuggestionsFromContext && drugSuggestionsFromContext.length > 0) {
+    if (drugInput.length >= 2 && drugSuggestionsFromContext.length > 0) {
         setShowSuggestionsDropdown(true);
     }
   };
-
 
   const handleInsuranceChange = (checked: boolean | 'indeterminate', insuranceId: string) => {
     const newSelection = checked
@@ -144,9 +152,14 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
   };
 
   const renderLocationInput = () => {
-    if (authLoading) return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
+    // Always define renderLocationInput output regardless of conditions
+    if (authLoading) {
+      return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
+    }
+    
     let labelText = "Zip Code";
     let placeholderText = "e.g., 90210";
+    
     if (membershipTier === 'basic') {
       return (
         <div className="sm:col-span-1">
@@ -164,6 +177,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
       labelText = "Location Name / Zip Code";
       placeholderText = "Enter city, state, or zip";
     }
+    
     return (
       <div className="sm:col-span-1">
         <Label htmlFor="locationInput" className="font-semibold block mb-1">{labelText}</Label>
@@ -176,7 +190,7 @@ export const ProviderSearch: React.FC<ProviderSearchFiltersProps> = ({
           disabled={authLoading}
         />
         {membershipTier === 'premium' && (
-          <p className="text-xs text-muted-foreground mt-1">TODO: Select from saved locations.</p>
+          <p className="text-xs text-muted-foreground mt-1">Select from saved locations.</p>
         )}
       </div>
     );
