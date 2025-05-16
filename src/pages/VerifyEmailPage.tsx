@@ -32,10 +32,8 @@ const VerifyEmailPage = () => {
       try {
         setVerificationStatus('loading');
         
-        // Use the correct attempt email verification method from Clerk
-        await client.emailAddresses.attemptVerification({
-          token,
-        });
+        // Use the verification API with the correct structure
+        await client.verifyToken(token);
         
         setVerificationStatus('success');
         toast({
@@ -105,6 +103,9 @@ const VerifyEmailPage = () => {
               <div className="space-y-4 w-full">
                 <p className="text-center text-muted-foreground">
                   The verification link may have expired or is invalid.
+                </p>
+                <p className="text-center text-muted-foreground text-sm">
+                  To continue, open the verification link on the device and browser from which you initiated the sign-in.
                 </p>
                 <Button 
                   variant="outline" 
