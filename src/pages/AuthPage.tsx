@@ -4,7 +4,6 @@ import {
   SignIn, 
   SignUp, 
   useUser,
-  RedirectToSignIn 
 } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,20 +57,14 @@ export const AuthPage: React.FC = () => {
                 </TabsList>
                 <TabsContent value="sign-in">
                   <SignIn 
-                    routing="path" 
-                    path="/auth"
                     signUpUrl="/auth#sign-up"
                     redirectUrl="/"
-                    afterSignUpUrl="/auth/verify-email-address"
                   />
                 </TabsContent>
                 <TabsContent value="sign-up">
                   <SignUp 
-                    routing="path" 
-                    path="/auth"
                     signInUrl="/auth"
                     redirectUrl="/"
-                    afterSignUpUrl="/auth/verify-email-address"
                   />
                 </TabsContent>
               </Tabs>

@@ -31,8 +31,8 @@ const VerifyEmailPage = () => {
 
       try {
         setVerificationStatus('loading');
-        // Verify the email using Clerk
-        await client.verifyEmailAddress({ token });
+        // Use the correct Clerk API to verify the email
+        await client.verifications.attemptEmailAddressVerification({ token });
         setVerificationStatus('success');
         toast({
           title: "Email verified",
@@ -120,3 +120,4 @@ const VerifyEmailPage = () => {
 };
 
 export default VerifyEmailPage;
+
