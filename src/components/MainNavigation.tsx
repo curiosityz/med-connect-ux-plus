@@ -2,9 +2,9 @@
 import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 import { useTheme } from "next-themes"; // Import useTheme
 import { Moon, Sun, LogOut, UserCircle, LogIn } from "lucide-react"; // Icons
+import { useUser, useClerk, SignInButton, UserButton } from "@clerk/clerk-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const MainNavigation = () => {
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { isSignedIn, user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -71,10 +72,6 @@ const MainNavigation = () => {
           <Link to="/" className="text-foreground/80 hover:text-primary font-medium">
             Home
           </Link>
-          {/* The /medications link seems to be a duplicate of /find-providers based on label */}
-          {/* <Link to="/medications" className="text-foreground/80 hover:text-primary font-medium">
-            Find Prescribers
-          </Link> */}
           <Link to="/find-providers" className="text-foreground/80 hover:text-primary font-medium">
             Provider Search
           </Link>
@@ -85,44 +82,41 @@ const MainNavigation = () => {
 
         <div className="flex items-center space-x-3">
           <ThemeToggleButton />
-          {authLoading ? (
+          {!isLoaded ? (
             <div className="h-8 w-20 animate-pulse bg-muted rounded-md"></div> // Skeleton for auth buttons
-          ) : user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <UserCircle className="h-6 w-6" />
-                  <span className="sr-only">User menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {user.email || "User"}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.id.substring(0,15)}...
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {/* <DropdownMenuItem asChild>
-                  <Link to="/profile">Profile</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">Settings</Link>
-                </DropdownMenuItem> */}
-                <DropdownMenuItem asChild>
-                  <Link to="/manage-locations">Manage Locations</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-red-600 hover:!text-red-600 hover:!bg-red-50 dark:hover:!bg-red-900/50 cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          ) : isSignedIn ? (
+            <div className="flex items-center gap-2">
+              <UserButton afterSignOutUrl="/" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <UserCircle className="h-6 w-6" />
+                    <span className="sr-only">User menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {user?.primaryEmailAddress?.emailAddress || "User"}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.id.substring(0,15)}...
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/manage-locations">Manage Locations</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 hover:!text-red-600 hover:!bg-red-50 dark:hover:!bg-red-900/50 cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
             <>
               <Button variant="ghost" asChild className="hidden sm:inline-flex">

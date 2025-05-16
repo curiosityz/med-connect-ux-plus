@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Skeleton } from '@/components/ui/skeleton'; // For fallback UI
+import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut } from '@clerk/clerk-react';
 
 // Lazy load page components
 const Index = lazy(() => import("./pages/Index"));
@@ -45,33 +46,59 @@ const queryClient = new QueryClient({
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <SearchProvider>
-        <UIProvider> {/* Wrap with UIProvider */}
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Suspense fallback={<LoadingFallback />}> {/* Wrap Routes with Suspense */}
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/medications" element={<MedicationsPage />} />
-                  <Route path="/medications/:id" element={<MedicationDetailPage />} />
-                  <Route path="/providers/:id" element={<ProviderDetailPage />} />
-                  <Route path="/arkansas-providers" element={<ArkansasProvidersPage />} />
-                  <Route path="/arkansas-providers/:npi" element={<ArkansasProviderDetailPage />} />
-                  <Route path="/find-providers" element={<ProviderSearchPage />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/manage-locations" element={<ManageLocationsPage />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
-        </UIProvider>
-      </SearchProvider>
-    </AuthProvider>
+    <ClerkLoading>
+      <LoadingFallback />
+    </ClerkLoading>
+    <ClerkLoaded>
+      <AuthProvider>
+        <SearchProvider>
+          <UIProvider> {/* Wrap with UIProvider */}
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Suspense fallback={<LoadingFallback />}> {/* Wrap Routes with Suspense */}
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/medications" element={<MedicationsPage />} />
+                    <Route path="/medications/:id" element={<MedicationDetailPage />} />
+                    <Route path="/providers/:id" element={<ProviderDetailPage />} />
+                    <Route path="/arkansas-providers" element={<ArkansasProvidersPage />} />
+                    <Route path="/arkansas-providers/:npi" element={<ArkansasProviderDetailPage />} />
+                    <Route path="/find-providers" element={
+                      <>
+                        <SignedIn>
+                          <ProviderSearchPage />
+                        </SignedIn>
+                        <SignedOut>
+                          <Navigate to="/auth" />
+                        </SignedOut>
+                      </>
+                    } />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/manage-locations" element={
+                      <>
+                        <SignedIn>
+                          <ManageLocationsPage />
+                        </SignedIn>
+                        <SignedOut>
+                          <Navigate to="/auth" />
+                        </SignedOut>
+                      </>
+                    } />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </TooltipProvider>
+          </UIProvider>
+        </SearchProvider>
+      </AuthProvider>
+    </ClerkLoaded>
   </QueryClientProvider>
 );
+
+// Add missing import
+import { Navigate } from 'react-router-dom';
 
 export default App;
