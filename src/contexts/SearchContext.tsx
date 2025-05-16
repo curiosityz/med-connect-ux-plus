@@ -80,9 +80,6 @@ export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     
     try {
       dispatch({ type: 'FETCH_SUGGESTIONS_REQUEST' });
-      if (!token) {
-        console.warn('No authentication token available for drug suggestions');
-      }
       
       // Pass the token to the API client
       const suggestions = await apiClient.getDrugSuggestions(query, token);
