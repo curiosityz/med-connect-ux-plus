@@ -26,7 +26,7 @@ export const useDrugSuggestions = (query: string, enabled = true, minLength = 3,
     }
 
     // Prevent duplicate fetches for the same query
-    if (queryToUse === lastFetchedQuery) {
+    if (queryToUse === lastFetchedQuery && suggestionCache[queryToUse.toLowerCase()]) {
       return;
     }
 
@@ -61,7 +61,9 @@ export const useDrugSuggestions = (query: string, enabled = true, minLength = 3,
 
   // Only auto-fetch if manualTrigger is false
   useEffect(() => {
-    if (!manualTrigger && debouncedQuery && debouncedQuery.length >= minLength) {
+    // Only auto-fetch if we're explicitly told to do so via manualTrigger=false
+    // AND the query meets minimum requirements
+    if (!manualTrigger && debouncedQuery && debouncedQuery.length >= minLength && enabled) {
       fetchSuggestions();
     }
   }, [debouncedQuery, enabled, manualTrigger]);

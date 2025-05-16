@@ -183,6 +183,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     
     let labelText = "Zip Code";
     let placeholderText = "e.g., 90210";
+    let isDisabled = false;
     
     if (membershipTier === 'basic') {
       return (
@@ -211,7 +212,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
           value={locationInput}
           onChange={handleLocationInputChange}
           placeholder={placeholderText}
-          disabled={authLoading}
+          disabled={isDisabled}
         />
         {membershipTier === 'premium' && (
           <p className="text-xs text-muted-foreground mt-1">Select from saved locations.</p>

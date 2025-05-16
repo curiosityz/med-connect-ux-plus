@@ -134,8 +134,8 @@ const ProviderSearchPage = () => {
       default:
         if (/^\d{5}(-\d{4})?$/.test(localLocationInput)) {
           finalZipCode = localLocationInput;
-        } else {
-          console.warn("Expert tier requires a valid zip code for location search.");
+        } else if (localLocationInput) {
+          finalLocationName = localLocationInput;
         }
         break;
     }
@@ -165,7 +165,11 @@ const ProviderSearchPage = () => {
   // Determine if the search criteria are met (for enabling search button)
   const isSearchCriteriaMet = useMemo(() => {
     if (authLoading || !filters.drugName || filters.drugName.length < 2) return false;
+    
+    // For basic membership, check if primaryLocationZip exists
     if (membershipTier === 'basic') return !!primaryLocationZip;
+    
+    // For other membership types, check if location input exists
     return !!localLocationInput.trim();
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);
 
@@ -225,9 +229,16 @@ const ProviderSearchPage = () => {
                 disabled={!isSearchCriteriaMet || isLoading}
                 size="lg"
                 className="px-8 py-3 text-lg" // Make button more prominent
+                type="button"
               >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Search Providers
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  "Search Providers"
+                )}
               </Button>
             </div>
 
