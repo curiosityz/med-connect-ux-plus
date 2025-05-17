@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -35,9 +36,10 @@ const VerifyEmailPage: React.FC = () => {
         if (clerk && isLoaded) {
           console.log('Attempting to verify email with token');
           
-          // Use the correct Clerk API method for email verification
-          await clerk.client.sessions.attemptEmailAddressVerification({ 
-            token 
+          // Fix: Use the correct path to access the verification method
+          await clerk.client.verifyToken({
+            token,
+            strategy: "email_link"
           });
           
           setVerificationState('success');
