@@ -1,3 +1,4 @@
+
 import { supabase, Provider } from './supabase'; // Keep supabase import if needed elsewhere, but not for getSession here
 
 const DEFAULT_MAX_RETRIES = 3;
@@ -24,19 +25,20 @@ interface ApiClientOptions {
   timeoutMs?: number;
 }
 
-// ... (Keep interface definitions: SearchApiParams, PaginatedProvidersApiResponse, UserLocation) ...
+// Update the SearchApiParams with required fields
 export interface SearchApiParams {
-  drugName: string;
+  drugName: string; // Required field
   radiusMiles?: number;
   minClaims?: number;
   taxonomyClass?: string | null;
   sortBy?: 'distance' | 'claims' | 'name';
-  zipCode: string;
+  zipCode: string; // Required field
   locationName?: string;
   acceptedInsurance?: string[];
   minRating?: number;
   cursor?: string | number;
   limit?: number;
+  token?: string | null; // Add token for authentication
 }
 
 export interface PaginatedProvidersApiResponse {

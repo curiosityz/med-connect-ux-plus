@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { apiClient } from '@/lib/api-client';
 import { useClerkAuth } from './useClerkAuth';
@@ -26,16 +26,24 @@ export function useClerkUserProfile(): UseUserProfileResult {
   const [membershipTier, setMembershipTier] = useState<MembershipTier>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Add flags to prevent multiple syncs in progress
+  const isSyncingRef = useRef<boolean>(false);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncUserProfile = useCallback(async (): Promise<void> => {
-    if (!userId || !user) {
-      setPrimaryZipCode(null);
-      setMembershipTier(null);
-      setIsLoading(false);
+    // Cancel if already syncing or no user
+    if (isSyncingRef.current || !userId || !user) {
+      if (!userId || !user) {
+        setPrimaryZipCode(null);
+        setMembershipTier(null);
+        setIsLoading(false);
+      }
       return;
     }
 
     console.log("Syncing user profile for:", userId);
+    isSyncingRef.current = true;
     setIsLoading(true);
     setError(null);
     
@@ -79,14 +87,29 @@ export function useClerkUserProfile(): UseUserProfileResult {
       setError(e as Error);
     } finally {
       setIsLoading(false);
+      isSyncingRef.current = false;
     }
   }, [userId, user, getToken]);
 
-  // Sync the user profile on mount
+  // Sync the user profile on mount, but with proper debouncing
   useEffect(() => {
-    if (userId && user) {
-      syncUserProfile();
+    // Clear any existing sync timeouts
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
     }
+    
+    if (userId && user && !isSyncingRef.current) {
+      // Use timeout to prevent rapid consecutive syncs
+      syncTimeoutRef.current = setTimeout(() => {
+        syncUserProfile();
+      }, 1000); // Delay by 1 second to avoid race conditions
+    }
+    
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
   }, [userId, user, syncUserProfile]);
 
   // Update user's primary ZIP code

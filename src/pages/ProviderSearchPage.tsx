@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import './ProviderSearchPage.css';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
@@ -47,10 +47,15 @@ const ProviderSearchPage = () => {
   
   // Added flag to prevent duplicate API calls during a search operation
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Use refs to prevent excessive API calls
+  const hasInitialSyncRef = useRef<boolean>(false);
 
-  // Sync user profile on mount to get the latest location data
+  // Sync user profile on mount to get the latest location data, but only once
   useEffect(() => {
-    if (isSignedIn && clerkLoaded) {
+    if (isSignedIn && clerkLoaded && !hasInitialSyncRef.current) {
+      console.log("Performing initial user profile sync");
+      hasInitialSyncRef.current = true;
       syncUserProfile();
     }
   }, [isSignedIn, clerkLoaded, syncUserProfile]);
