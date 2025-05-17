@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
+import { toast } from "sonner";
 
 const VerifyEmailPage: React.FC = () => {
   const [verificationState, setVerificationState] = useState<'loading' | 'success' | 'error'>('loading');
@@ -27,14 +28,19 @@ const VerifyEmailPage: React.FC = () => {
         if (!token) {
           setErrorMessage('Verification token is missing.');
           setVerificationState('error');
+          toast.error('Verification failed: Token is missing');
           return;
         }
 
         // Use clerk instance to verify the token
         if (clerk && isLoaded) {
-          // Updated: Use the correct method for email verification
-          await clerk.client.verifyEmail(token);
+          console.log('Attempting to verify email with token');
+          
+          // Fix: Use the correct method to verify email
+          await clerk.client.verifyEmailAddress({ token });
+          
           setVerificationState('success');
+          toast.success('Email successfully verified!');
           
           // Redirect to home page after successful verification after a delay
           setTimeout(() => {
@@ -47,6 +53,7 @@ const VerifyEmailPage: React.FC = () => {
         console.error('Email verification error:', error);
         setErrorMessage(error.message || 'Failed to verify email.');
         setVerificationState('error');
+        toast.error(`Verification failed: ${error.message || 'Unknown error'}`);
       }
     };
 
