@@ -2,14 +2,14 @@
 import { useAuth as useClerkBaseAuth, useSession } from '@clerk/clerk-react';
 
 export const useClerkAuth = () => {
-  // Always destructure the values to avoid potential issues with conditional hook usage
-  const { userId, isLoaded } = useClerkBaseAuth();
+  const { userId, isLoaded, isSignedIn } = useClerkBaseAuth();
   const { session } = useSession();
   
   const getToken = async () => {
     if (session) {
       try {
-        return await session.getToken();
+        const token = await session.getToken();
+        return token;
       } catch (error) {
         console.error('Error getting session token:', error);
         return null;
@@ -19,7 +19,8 @@ export const useClerkAuth = () => {
   };
 
   return {
-    isAuthenticated: isLoaded && !!userId,
+    userId,
+    isAuthenticated: isLoaded && !!userId && isSignedIn,
     getToken,
     isLoading: !isLoaded
   };
