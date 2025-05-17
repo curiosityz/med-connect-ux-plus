@@ -36,8 +36,8 @@ const VerifyEmailPage: React.FC = () => {
         if (clerk && isLoaded) {
           console.log('Attempting to verify email with token');
           
-          // Fix: Use verifyEmailAddress method instead of verify
-          await clerk.verifyEmailAddress(token);
+          // Fix: Use the correct method to verify email
+          await clerk.client.verifyEmailAddress({ token });
           
           setVerificationState('success');
           toast.success('Email successfully verified!');
