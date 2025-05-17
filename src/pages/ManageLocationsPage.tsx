@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MainNavigation from '@/components/MainNavigation';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocationList } from '@/components/LocationManagement/LocationList';
 import AddLocationForm from '@/components/LocationManagement/AddLocationForm';
@@ -12,7 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 import { supabase } from '@/lib/supabase';
-import { Button, Link } from '@radix-ui/react';
+import { Button } from '@/components/ui/button';
 
 export const ManageLocationsPage: React.FC = () => {
   const { user, loading: authLoading, membershipTier } = useAuth();
@@ -152,15 +153,14 @@ export const ManageLocationsPage: React.FC = () => {
               Your primary location is used for searches on the Basic tier. Upgrade to Premium or Expert to save multiple locations.
             </p>
             <LocationList
-              locations={locations.filter(loc => loc.isPrimary)} // Show only primary
+              locations={locations.filter(loc => loc.isPrimary)}
               onDelete={deleteLocationMutation.mutate}
               onSetPrimary={setPrimaryLocationMutation.mutate}
               isLoading={deleteLocationMutation.isPending || setPrimaryLocationMutation.isPending}
-              isPrimaryFeatureEnabled={false} // Cannot change primary on basic
+              isPrimaryFeatureEnabled={false}
             />
              {locations.filter(loc => loc.isPrimary).length === 0 && !locationsLoading && (
                  <p className="text-sm text-muted-foreground mt-4">No primary location set.</p>
-                 // TODO: Add button/flow to set primary location if needed for basic tier
              )}
           </div>
         )}
@@ -186,7 +186,7 @@ export const ManageLocationsPage: React.FC = () => {
                  onDelete={deleteLocationMutation.mutate}
                  onSetPrimary={setPrimaryLocationMutation.mutate}
                  isLoading={deleteLocationMutation.isPending || setPrimaryLocationMutation.isPending || addLocationMutation.isPending}
-                 isPrimaryFeatureEnabled={true} // Can set primary
+                 isPrimaryFeatureEnabled={true}
               />
                {locations.length === 0 && !locationsLoading && (
                    <p className="text-sm text-muted-foreground mt-4">You haven't saved any locations yet.</p>

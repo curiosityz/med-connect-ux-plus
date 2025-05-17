@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { ProfileEdit } from '@/components/UserProfile/ProfileEdit';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from "@/components/ui/button";
 
 const UserProfilePage: React.FC = () => {
   const { user, isLoading } = useClerkAuth();
