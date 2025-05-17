@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -36,11 +35,7 @@ const VerifyEmailPage: React.FC = () => {
         if (clerk && isLoaded) {
           console.log('Attempting to verify email with token');
           
-          // Fix: Use the correct path to access the verification method
-          await clerk.client.verifyToken({
-            token,
-            strategy: "email_link"
-          });
+          await clerk.verifyEmailAddress(token);
           
           setVerificationState('success');
           toast.success('Email successfully verified!');

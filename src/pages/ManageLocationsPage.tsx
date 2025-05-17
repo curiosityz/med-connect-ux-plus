@@ -12,6 +12,7 @@ import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 import { supabase } from '@/lib/supabase';
+import { Button, Link } from '@radix-ui/react';
 
 export const ManageLocationsPage: React.FC = () => {
   const { user, loading: authLoading, membershipTier } = useAuth();
@@ -136,7 +137,12 @@ export const ManageLocationsPage: React.FC = () => {
 
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold">Manage Your Locations</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Manage Your Locations</h1>
+          <Button variant="outline" asChild>
+            <Link to="/profile">Back to Profile</Link>
+          </Button>
+        </div>
 
         {/* Basic Tier: Show only primary location */}
         {membershipTier === 'basic' && (

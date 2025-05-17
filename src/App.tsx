@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from 'react'; 
 import { AuthProvider } from "./contexts/AuthContext";
 import { SearchProvider } from "./contexts/SearchContext";
@@ -10,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut } from '@clerk/clerk-react';
+import { OnboardingManager } from './components/Onboarding/OnboardingManager';
 
 // Lazy load page components
 const Index = lazy(() => import("./pages/Index"));
@@ -24,6 +24,7 @@ const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default
 const ManageLocationsPage = lazy(() => import("./pages/ManageLocationsPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const ProvidersPage = lazy(() => import("./pages/ProvidersPage"));
+const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
 
 // Simple fallback component
 const LoadingFallback = () => (
@@ -57,6 +58,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <OnboardingManager />
                 <Suspense fallback={<LoadingFallback />}>
                   <Routes>
                     <Route path="/" element={<Index />} />
@@ -70,6 +72,16 @@ const App = () => (
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/auth/verify-email-address" element={<VerifyEmailPage />} />
                     <Route path="/auth/verify" element={<VerifyEmailPage />} />
+                    <Route path="/profile" element={
+                      <>
+                        <SignedIn>
+                          <UserProfilePage />
+                        </SignedIn>
+                        <SignedOut>
+                          <Navigate to="/auth" />
+                        </SignedOut>
+                      </>
+                    } />
                     <Route path="/manage-locations" element={
                       <>
                         <SignedIn>

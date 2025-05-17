@@ -1,9 +1,10 @@
 
-import { useAuth as useClerkBaseAuth, useSession } from '@clerk/clerk-react';
+import { useAuth as useClerkBaseAuth, useSession, useUser } from '@clerk/clerk-react';
 
 export const useClerkAuth = () => {
   const { userId, isLoaded, isSignedIn } = useClerkBaseAuth();
   const { session } = useSession();
+  const { user } = useUser();
   
   const getToken = async () => {
     if (session) {
@@ -22,6 +23,7 @@ export const useClerkAuth = () => {
     userId,
     isAuthenticated: isLoaded && !!userId && isSignedIn,
     getToken,
-    isLoading: !isLoaded
+    isLoading: !isLoaded,
+    user
   };
 };
