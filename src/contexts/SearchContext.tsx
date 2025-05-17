@@ -36,13 +36,13 @@ export const SearchProvider: React.FC<{children: React.ReactNode}> = ({ children
       
       console.log('Performing search with filters:', filters);
       
-      // Extract pagination from filters or use defaults
-      const { cursor } = filters;
+      // Extract and use only the next cursor when loading more
+      const nextCursor = isLoadMore ? searchState.pagination.nextCursor : undefined;
       
-      // Execute search API call
-      const response = await apiClient.search({
+      // Execute search API call - use findProviders method
+      const response = await apiClient.findProviders({
         ...filters,
-        cursor: isLoadMore ? searchState.pagination.nextCursor : cursor
+        cursor: nextCursor
       }, filters.token);
       
       // Dispatch appropriate action based on whether this is a new search or loading more
@@ -103,7 +103,7 @@ export const SearchProvider: React.FC<{children: React.ReactNode}> = ({ children
       isFetchingSuggestions = true;
       dispatch({ type: 'FETCH_SUGGESTIONS_REQUEST' });
       
-      const suggestions = await apiClient.fetchDrugSuggestions(query, token);
+      const suggestions = await apiClient.getDrugSuggestions(query, token);
       
       dispatch({
         type: 'FETCH_SUGGESTIONS_SUCCESS',

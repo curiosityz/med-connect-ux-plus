@@ -1,5 +1,4 @@
-
-// Update the SearchReducer to have a token field
+// Update the SearchReducer to include a cursor field in SearchFilters
 import { Provider } from '@/lib/supabase';
 import { ApiError } from '@/lib/api-client';
 
@@ -13,7 +12,8 @@ export interface SearchFilters {
   sortBy?: 'distance' | 'claims' | 'name';
   acceptedInsurance?: string[];
   minRating?: number;
-  token?: string | null; // Add token field
+  token?: string | null;
+  cursor?: string | number; // Add cursor field for pagination
 }
 
 export interface SearchPagination {
@@ -28,7 +28,7 @@ export interface SearchState {
   isLoading: boolean;
   error: ApiError | null;
   pagination: SearchPagination;
-  token: string | null; // Add token field at the state level
+  token: string | null;
 }
 
 export const initialSearchState: SearchState = {
@@ -42,7 +42,8 @@ export const initialSearchState: SearchState = {
     sortBy: 'distance',
     acceptedInsurance: [],
     minRating: 0,
-    token: null, // Initialize token as null
+    token: null,
+    cursor: undefined, // Initialize cursor as undefined
   },
   results: [],
   suggestions: [],
@@ -52,7 +53,7 @@ export const initialSearchState: SearchState = {
     nextCursor: null,
     totalCount: 0,
   },
-  token: null, // Initialize token as null
+  token: null,
 };
 
 export type SearchAction =
@@ -76,7 +77,7 @@ export type SearchAction =
   | { type: 'FETCH_SUGGESTIONS_REQUEST' }
   | { type: 'FETCH_SUGGESTIONS_SUCCESS'; payload: string[] }
   | { type: 'FETCH_SUGGESTIONS_FAILURE'; payload: string }
-  | { type: 'UPDATE_TOKEN'; payload: string | null }; // Add UPDATE_TOKEN action
+  | { type: 'UPDATE_TOKEN'; payload: string | null };
 
 export const searchReducer = (state: SearchState, action: SearchAction): SearchState => {
   switch (action.type) {

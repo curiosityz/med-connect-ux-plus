@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from './useDebounce';
 import { supabase } from '@/lib/supabase';
 
@@ -34,7 +34,18 @@ export const useProviderSearch = (initialParams: ProviderSearchParams = {}) => {
   // Debounce search query to prevent too many requests
   const debouncedQuery = useDebounce(params.query, 300);
   
-  const searchProviders = async (searchParams: ProviderSearchParams) => {
+  // Flag to track if search is currently in progress
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Make searchProviders method accessible externally and prevent automatic search
+  const searchProviders = useCallback(async (searchParams: ProviderSearchParams) => {
+    // Prevent concurrent searches
+    if (isSearching) {
+      console.log('Search already in progress. Ignoring duplicate request.');
+      return;
+    }
+    
+    setIsSearching(true);
     setLoading(true);
     setError(null);
     
@@ -43,6 +54,8 @@ export const useProviderSearch = (initialParams: ProviderSearchParams = {}) => {
       const page = searchParams.page || 1;
       const limit = searchParams.limit || 10;
       const startIndex = (page - 1) * limit;
+      
+      console.log('Executing provider search with params:', searchParams);
       
       let query = supabase
         .from('providers')
@@ -76,16 +89,12 @@ export const useProviderSearch = (initialParams: ProviderSearchParams = {}) => {
       console.error('Provider search error:', err);
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
-  };
+  }, [isSearching]);
   
-  // Search providers when debounced query or other params change
-  useEffect(() => {
-    searchProviders({
-      ...params,
-      query: debouncedQuery // Use debounced query value
-    });
-  }, [debouncedQuery, params.specialty, params.location, params.medication, params.page, params.limit]);
+  // Remove automatic search to prevent thousands of API calls
+  // Instead, expose searchProviders for explicit calling
   
   // Update search parameters
   const updateSearchParams = (newParams: Partial<ProviderSearchParams>) => {

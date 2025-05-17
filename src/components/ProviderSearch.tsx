@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useClerkAuth } from '@/hooks/useClerkAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSearch } from '@/contexts/SearchContext';
+import { useClerkUserProfile } from '@/hooks/useClerkUserProfile';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchApiParams } from '@/lib/api-client';
@@ -73,6 +74,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   const { membershipTier, loading: authLoading } = useAuth();
   const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
+  const { primaryZipCode } = useClerkUserProfile();
   
   // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
@@ -191,8 +193,8 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
       return (
         <div className="sm:col-span-1">
           <Label htmlFor="location" className="block text-sm font-medium">Primary Location</Label>
-          {primaryLocationZip ? (
-            <Input id="location" type="text" value={primaryZipCode || primaryLocationZip} disabled readOnly className="opacity-70 cursor-not-allowed bg-gray-100" />
+          {primaryZipCode ? (
+            <Input id="location" type="text" value={primaryZipCode} disabled readOnly className="opacity-70 cursor-not-allowed bg-gray-100" />
           ) : (
             <p className="text-sm text-muted-foreground pt-2">
               Primary location not set. Please set it in your profile to enable search.
