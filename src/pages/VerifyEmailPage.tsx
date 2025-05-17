@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -37,9 +36,8 @@ const VerifyEmailPage: React.FC = () => {
           console.log('Attempting to verify email with token');
           
           // Use the correct Clerk API method for email verification
-          await clerk.authenticateWithToken({
-            token,
-            strategy: "email_link"
+          await clerk.client.sessions.attemptEmailAddressVerification({ 
+            token 
           });
           
           setVerificationState('success');
