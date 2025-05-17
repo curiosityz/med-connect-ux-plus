@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import './ProviderSearchPage.css';
 import MainNavigation from '@/components/MainNavigation';
@@ -16,12 +15,14 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'sonner';
+import { useClerkUserProfile } from '@/hooks/useClerkUserProfile';
 
 const ProviderSearchPage = () => {
   // Always call hooks at the top level, unconditionally
   const { membershipTier, loading: authLoading } = useAuth();
   const { isSignedIn, isLoaded: clerkLoaded } = useUser();
   const { getToken } = useClerkAuth();
+  const { primaryZipCode, syncUserProfile } = useClerkUserProfile();
   const navigate = useNavigate();
   const {
     searchState,
@@ -42,6 +43,13 @@ const ProviderSearchPage = () => {
   const [localLocationInput, setLocalLocationInput] = useState('');
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [clerkToken, setClerkToken] = useState<string | null>(null);
+
+  // Sync user profile on mount to get the latest location data
+  useEffect(() => {
+    if (isSignedIn && clerkLoaded) {
+      syncUserProfile();
+    }
+  }, [isSignedIn, clerkLoaded, syncUserProfile]);
 
   // Log membership tier whenever it changes
   useEffect(() => {
@@ -67,20 +75,14 @@ const ProviderSearchPage = () => {
     loadToken();
   }, [getToken, isSignedIn, clerkLoaded]);
 
-  // Memoized primary location zip
-  const primaryLocationZip = useMemo(() => {
-    console.log("Calculating primaryLocationZip based on membershipTier:", membershipTier);
-    return membershipTier === 'basic' ? "90210" : null;
-  }, [membershipTier]);
-
   // Effect to SYNC local input state FROM context/auth state when relevant parts change
   useEffect(() => {
     let locationToShow = '';
     
-    // Basic users see fixed zip code
-    if (membershipTier === 'basic' && primaryLocationZip) {
-      locationToShow = primaryLocationZip;
-      console.log("Setting basic tier location to:", locationToShow);
+    // Basic users see fixed zip code from profile
+    if (membershipTier === 'basic' && primaryZipCode) {
+      locationToShow = primaryZipCode;
+      console.log("Setting location from user profile:", locationToShow);
     } else {
       // Premium/expert users see entered location
       locationToShow = filters.locationName || filters.zipCode || '';
@@ -88,12 +90,12 @@ const ProviderSearchPage = () => {
     }
     
     // Only update local state if it's different from what should be shown
-    if (localLocationInput !== locationToShow) {
+    if (localLocationInput !== locationToShow && locationToShow) {
+      console.log("Updating local location input to:", locationToShow);
       setLocalLocationInput(locationToShow);
     }
-  }, [filters.locationName, filters.zipCode, membershipTier, primaryLocationZip, localLocationInput]);
+  }, [filters.locationName, filters.zipCode, membershipTier, primaryZipCode, localLocationInput]);
 
-  // Handlers for ProviderSearch component - update state but DON'T trigger searches
   const handleDrugNameChange = useCallback((value: string) => {
     // Update filter state but don't trigger search
     updateFilters({ drugName: value });
@@ -146,7 +148,7 @@ const ProviderSearchPage = () => {
 
     // Determine final zip/location based on tier and local input *at time of click*
     if (membershipTier === 'basic') {
-      finalZipCode = primaryLocationZip || undefined;
+      finalZipCode = primaryZipCode || undefined;
       console.log("Using basic tier fixed location:", finalZipCode);
     } else {
       // Premium or expert tier - can use any location
@@ -193,7 +195,7 @@ const ProviderSearchPage = () => {
     
     // For basic membership, check if primaryLocationZip exists
     if (membershipTier === 'basic') {
-      const result = !!primaryLocationZip;
+      const result = !!primaryZipCode;
       console.log("Basic tier search criteria met:", result);
       return result;
     }
@@ -202,7 +204,7 @@ const ProviderSearchPage = () => {
     const result = !!localLocationInput.trim();
     console.log("Premium/expert tier search criteria met:", result);
     return result;
-  }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryLocationZip]);
+  }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryZipCode]);
 
   // Handle authentication redirect early - but AFTER all hooks are called
   if (!authLoading && clerkLoaded && !isSignedIn) {

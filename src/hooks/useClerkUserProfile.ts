@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { apiClient } from '@/lib/api-client';
 import { useClerkAuth } from './useClerkAuth';
@@ -34,6 +35,7 @@ export function useClerkUserProfile(): UseUserProfileResult {
       return;
     }
 
+    console.log("Syncing user profile for:", userId);
     setIsLoading(true);
     setError(null);
     
@@ -56,12 +58,17 @@ export function useClerkUserProfile(): UseUserProfileResult {
       }
       
       // Fetch primary ZIP code
-      // For now, using the user's primary location
-      // This would typically come from your user_locations table
       try {
         const locations = await apiClient.getUserLocations(token);
         const primaryLocation = locations.find(location => location.isPrimary);
-        setPrimaryZipCode(primaryLocation?.zipCode || null);
+        
+        if (primaryLocation?.zipCode) {
+          console.log("Found primary location with ZIP:", primaryLocation.zipCode);
+          setPrimaryZipCode(primaryLocation.zipCode);
+        } else {
+          console.log("No primary location found with ZIP code");
+          setPrimaryZipCode(null);
+        }
       } catch (locError) {
         console.error('Error fetching user locations:', locError);
         // This is non-critical, so we don't set the main error state
@@ -75,6 +82,13 @@ export function useClerkUserProfile(): UseUserProfileResult {
     }
   }, [userId, user, getToken]);
 
+  // Sync the user profile on mount
+  useEffect(() => {
+    if (userId && user) {
+      syncUserProfile();
+    }
+  }, [userId, user, syncUserProfile]);
+
   // Update user's primary ZIP code
   const updatePrimaryZipCode = useCallback(async (zipCode: string): Promise<boolean> => {
     if (!userId) {
@@ -82,6 +96,7 @@ export function useClerkUserProfile(): UseUserProfileResult {
       return false;
     }
     
+    console.log("Updating primary ZIP code to:", zipCode);
     setIsLoading(true);
     try {
       const token = await getToken();
