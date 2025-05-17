@@ -15,7 +15,7 @@ const VerifyEmailPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useUser();
-  const clerk = useClerk();
+  const { client } = useClerk();
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -33,11 +33,11 @@ const VerifyEmailPage: React.FC = () => {
         }
 
         // Use clerk instance to verify the token
-        if (clerk && isLoaded) {
+        if (client && isLoaded) {
           console.log('Attempting to verify email with token');
           
           // Use the correct API method from Clerk
-          await clerk.client.verifyEmailAddress(token);
+          await client.verifyEmail({ token });
           
           setVerificationState('success');
           toast.success('Email successfully verified!');
@@ -60,7 +60,7 @@ const VerifyEmailPage: React.FC = () => {
     if (isLoaded) {
       verifyToken();
     }
-  }, [isLoaded, location.search, navigate, clerk]);
+  }, [isLoaded, location.search, navigate, client]);
 
   return (
     <div className="min-h-screen flex flex-col">
