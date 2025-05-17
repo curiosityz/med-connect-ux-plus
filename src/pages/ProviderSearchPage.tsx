@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import './ProviderSearchPage.css';
 import MainNavigation from '@/components/MainNavigation';
@@ -43,6 +44,9 @@ const ProviderSearchPage = () => {
   const [localLocationInput, setLocalLocationInput] = useState('');
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [clerkToken, setClerkToken] = useState<string | null>(null);
+  
+  // Added flag to prevent duplicate API calls during a search operation
+  const [isSearching, setIsSearching] = useState(false);
 
   // Sync user profile on mount to get the latest location data
   useEffect(() => {
@@ -137,12 +141,19 @@ const ProviderSearchPage = () => {
 
   // Handler for the explicit search button - ONLY place where search is triggered
   const handleSearchClick = async () => {
+    // Prevent duplicate API calls if already searching
+    if (isLoading || isSearching) {
+      console.log("Search already in progress, ignoring click");
+      return;
+    }
+    
     console.log("Search button clicked");
     console.log("Local location input:", localLocationInput);
     console.log("Membership tier:", membershipTier);
-    console.log("Search criteria met:", isSearchCriteriaMet);
     
     setSearchAttempted(true);
+    setIsSearching(true); // Set flag to prevent duplicate API calls
+    
     let finalZipCode: string | undefined = undefined;
     let finalLocationName: string | undefined = undefined;
 
@@ -179,31 +190,29 @@ const ProviderSearchPage = () => {
       } catch (error) {
         console.error('Error performing search:', error);
         toast.error("Search failed. Please try again.");
+      } finally {
+        setIsSearching(false); // Reset searching flag when done
       }
     } else {
       console.log("Search criteria not met for API call.");
       toast.error("Please enter a drug name and location to search.");
+      setIsSearching(false); // Reset searching flag
     }
   };
 
   // Determine if the search criteria are met (for enabling search button)
   const isSearchCriteriaMet = useMemo(() => {
     if (authLoading || !filters.drugName || filters.drugName.length < 2) {
-      console.log("Search criteria not met: Missing drug name or still loading");
       return false;
     }
     
     // For basic membership, check if primaryLocationZip exists
     if (membershipTier === 'basic') {
-      const result = !!primaryZipCode;
-      console.log("Basic tier search criteria met:", result);
-      return result;
+      return !!primaryZipCode;
     }
     
     // For other membership types, check if location input exists
-    const result = !!localLocationInput.trim();
-    console.log("Premium/expert tier search criteria met:", result);
-    return result;
+    return !!localLocationInput.trim();
   }, [authLoading, filters.drugName, localLocationInput, membershipTier, primaryZipCode]);
 
   // Handle authentication redirect early - but AFTER all hooks are called
@@ -260,12 +269,12 @@ const ProviderSearchPage = () => {
             <div className="mt-6 text-center">
               <Button
                 onClick={handleSearchClick}
-                disabled={!isSearchCriteriaMet || isLoading}
+                disabled={!isSearchCriteriaMet || isLoading || isSearching}
                 size="lg"
                 className="px-8 py-3 text-lg cursor-pointer" 
                 type="button"
               >
-                {isLoading ? (
+                {isLoading || isSearching ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Searching...

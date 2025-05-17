@@ -74,14 +74,13 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   const { getToken } = useClerkAuth();
   const { searchState, fetchSuggestions } = useSearch();
   
-  // Add debug logging for membershipTier
-  console.log("Current membershipTier:", membershipTier);
-  
   // Initialize all state variables unconditionally
   const [drugInput, setDrugInput] = useState(drugName);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [manualSuggestionSearch, setManualSuggestionSearch] = useState(false);
+  // Flag to prevent duplicate API calls for suggestions
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
 
   // Get token on mount and when auth changes
   useEffect(() => {
@@ -105,15 +104,18 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   // Only fetch suggestions when explicitly requested
   useEffect(() => {
     const fetchSuggestionsWithToken = async () => {
-      if (drugInput.length >= 2 && manualSuggestionSearch) {
+      // Prevent duplicate API calls
+      if (drugInput.length >= 2 && manualSuggestionSearch && !isFetchingSuggestions) {
         try {
+          setIsFetchingSuggestions(true);
           const currentToken = await getToken();
           await fetchSuggestions(drugInput, currentToken);
           setShowSuggestionsDropdown(true);
-          setManualSuggestionSearch(false);
         } catch (error) {
           console.error("Error fetching suggestions:", error);
+        } finally {
           setManualSuggestionSearch(false);
+          setIsFetchingSuggestions(false);
         }
       }
     };
@@ -121,7 +123,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
     if (manualSuggestionSearch) {
       fetchSuggestionsWithToken();
     }
-  }, [drugInput, fetchSuggestions, getToken, manualSuggestionSearch]);
+  }, [drugInput, fetchSuggestions, getToken, manualSuggestionSearch, isFetchingSuggestions]);
 
   // Sync with parent state
   useEffect(() => {
@@ -153,14 +155,13 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
   };
   
   const handleDrugInputFocus = () => {
-    if (drugInput.length >= 2 && !disableAutoSearch) {
-      setManualSuggestionSearch(true);
-    }
+    // Do not automatically fetch suggestions on focus
+    // This prevents unwanted API calls
   };
   
   const handleShowSuggestions = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (drugInput.length >= 2) {
+    if (drugInput.length >= 2 && !isFetchingSuggestions) {
       setManualSuggestionSearch(true);
     }
   };
@@ -185,16 +186,13 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
       return <div className="sm:col-span-1"><Skeleton className="h-10 w-full" /></div>;
     }
     
-    // Log to help debug
-    console.log("Rendering location input for membership tier:", membershipTier);
-    
     // For basic tier (fixed location)
     if (membershipTier === 'basic') {
       return (
         <div className="sm:col-span-1">
           <Label htmlFor="location" className="block text-sm font-medium">Primary Location</Label>
           {primaryLocationZip ? (
-            <Input id="location" type="text" value={primaryLocationZip} disabled readOnly className="opacity-70 cursor-not-allowed bg-gray-100" />
+            <Input id="location" type="text" value={primaryZipCode || primaryLocationZip} disabled readOnly className="opacity-70 cursor-not-allowed bg-gray-100" />
           ) : (
             <p className="text-sm text-muted-foreground pt-2">
               Primary location not set. Please set it in your profile to enable search.
@@ -250,8 +248,12 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
             <Button 
               variant="outline" 
               className="rounded-l-none border-l-0" 
-              onClick={handleShowSuggestions}>
-              Suggest
+              onClick={handleShowSuggestions}
+              disabled={isFetchingSuggestions}
+            >
+              {isFetchingSuggestions ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : "Suggest"}
             </Button>
           </div>
           {showSuggestionsDropdown && (
