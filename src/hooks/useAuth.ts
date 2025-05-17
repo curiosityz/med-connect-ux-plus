@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Provider as AuthProvider, SignInWithPasswordCredentials, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
@@ -41,11 +40,88 @@ async function fetchUserMembershipTier(userId: string, token: string | null): Pr
   */
 }
 
+// Fetch user's primary ZIP code from the database
+async function fetchUserPrimaryZip(userId: string, token: string | null): Promise<string | null> {
+  try {
+    console.log('Fetching primary ZIP code for user:', userId);
+    // For testing purposes, return a hardcoded value
+    // In production, this would query the database for the user's saved locations
+    return "90210"; // Default ZIP code for testing
+    
+    /* Uncomment for production code
+    const { data, error } = await supabase
+      .from('user_locations')
+      .select('zip_code')
+      .eq('supabase_user_id', userId)
+      .eq('is_primary', true)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching user primary ZIP code:', error);
+      return null;
+    }
+    
+    return data?.zip_code || null;
+    */
+  } catch (error) {
+    console.error('Error fetching user primary ZIP code:', error);
+    return null;
+  }
+}
+
+// Save user's primary ZIP code to the database
+async function saveUserPrimaryZip(userId: string, zipCode: string, token: string | null): Promise<boolean> {
+  try {
+    console.log('Saving primary ZIP code for user:', userId, zipCode);
+    // For testing purposes, just log the save attempt
+    // In production, this would upsert to the database
+    
+    /* Uncomment for production code
+    // Check if user already has a primary location
+    const { data: existingLocation } = await supabase
+      .from('user_locations')
+      .select('user_location_id')
+      .eq('supabase_user_id', userId)
+      .eq('is_primary', true)
+      .single();
+    
+    if (existingLocation) {
+      // Update existing primary location
+      const { error } = await supabase
+        .from('user_locations')
+        .update({ zip_code: zipCode })
+        .eq('user_location_id', existingLocation.user_location_id);
+      
+      if (error) throw error;
+    } else {
+      // Create new primary location
+      const { error } = await supabase
+        .from('user_locations')
+        .insert({
+          supabase_user_id: userId,
+          location_name: 'Primary Location',
+          zip_code: zipCode,
+          is_primary: true,
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+    }
+    */
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving user primary ZIP code:', error);
+    return false;
+  }
+}
+
 export type MembershipTier = 'basic' | 'premium' | 'expert' | null;
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [membershipTier, setMembershipTier] = useState<MembershipTier>(null);
+  const [primaryZipCode, setPrimaryZipCode] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -60,9 +136,15 @@ export function useAuth() {
       const tier = await fetchUserMembershipTier(sessionUser.id, token);
       console.log("Setting membership tier to:", tier);
       setMembershipTier(tier);
+      
+      // Fetch user's primary ZIP code
+      const zip = await fetchUserPrimaryZip(sessionUser.id, token);
+      console.log("Setting primary ZIP code to:", zip);
+      setPrimaryZipCode(zip);
     } else {
-      console.log("No user session, setting membership tier to null");
+      console.log("No user session, setting membership tier and ZIP code to null");
       setMembershipTier(null);
+      setPrimaryZipCode(null);
     }
     setLoading(false);
   }, []);
@@ -96,6 +178,34 @@ export function useAuth() {
       subscription.unsubscribe();
     };
   }, [handleUserSession]);
+
+  // Function to update user's primary ZIP code
+  const updatePrimaryZipCode = async (zipCode: string) => {
+    if (!user) {
+      console.error("Cannot update ZIP code: No user logged in");
+      return false;
+    }
+    
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
+      
+      const success = await saveUserPrimaryZip(user.id, zipCode, token);
+      if (success) {
+        setPrimaryZipCode(zipCode);
+        console.log("Primary ZIP code updated successfully");
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Error updating primary ZIP code:", e);
+      setError(e as Error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const signUp = async (credentials: SignUpWithPasswordCredentials) => {
     setLoading(true);
@@ -163,5 +273,16 @@ export function useAuth() {
     }
   };
 
-  return { user, membershipTier, loading, error, signUp, signInWithPassword, signInWithOAuth, signOut };
+  return { 
+    user, 
+    membershipTier, 
+    primaryZipCode, 
+    updatePrimaryZipCode,
+    loading, 
+    error, 
+    signUp, 
+    signInWithPassword, 
+    signInWithOAuth, 
+    signOut 
+  };
 }
