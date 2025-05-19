@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'PG Table Navigator',
-  description: 'Full-text search for PostgreSQL tables',
+  title: 'Prescriber Finder',
+  description: 'Find prescribers by medication and zipcode',
 };
 
 export default function RootLayout({
