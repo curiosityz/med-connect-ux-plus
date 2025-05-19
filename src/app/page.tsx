@@ -8,18 +8,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Database, Search, Loader2, CheckCircle, XCircle, ServerIcon } from 'lucide-react';
-import { testConnection, searchNodes } from './actions';
+import { Database, Search, Loader2, CheckCircle, XCircle, Table } from 'lucide-react'; // Changed ServerIcon to Table
+import { testConnection, searchTables } from './actions'; // Changed searchNodes to searchTables
 import { debounce } from '@/lib/utils';
 
-interface NodeResult {
-  node_name: string;
+interface TableResult { // Renamed from NodeResult
+  table_name: string; // Renamed from node_name
   highlighted_name: string;
 }
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<NodeResult[]>([]);
+  const [results, setResults] = useState<TableResult[]>([]); // Changed NodeResult to TableResult
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [isLoadingConnection, setIsLoadingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{
@@ -54,7 +54,7 @@ export default function HomePage() {
         return;
       }
       setIsLoadingSearch(true);
-      const response = await searchNodes(query);
+      const response = await searchTables(query); // Changed from searchNodes
       if (response.success && response.results) {
         setResults(response.results);
       } else {
@@ -66,7 +66,7 @@ export default function HomePage() {
         });
       }
       setIsLoadingSearch(false);
-    }, 500), // 500ms debounce delay
+    }, 500), 
     [toast] 
   );
 
@@ -74,10 +74,10 @@ export default function HomePage() {
     const query = event.target.value;
     setSearchQuery(query);
     if (query.trim() === '') {
-      setResults([]); // Clear results immediately if query is empty
+      setResults([]); 
       setIsLoadingSearch(false);
     } else {
-      setIsLoadingSearch(true); // Show loader while debouncing
+      setIsLoadingSearch(true); 
       debouncedSearch(query);
     }
   };
@@ -93,10 +93,10 @@ export default function HomePage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-2">
             <Database className="h-10 w-10 text-primary mr-3" />
-            <CardTitle className="text-3xl font-bold">PG Navigator</CardTitle>
+            <CardTitle className="text-3xl font-bold">PG Table Navigator</CardTitle> 
           </div>
           <CardDescription className="text-lg">
-            Real-time full-text search for PostgreSQL nodes.
+            Real-time full-text search for PostgreSQL tables.
           </CardDescription>
         </CardHeader>
 
@@ -125,16 +125,16 @@ export default function HomePage() {
           <Separator />
 
           <div className="space-y-2">
-             <h3 className="text-lg font-semibold mb-1">Search Nodes</h3>
+             <h3 className="text-lg font-semibold mb-1">Search Tables</h3>
             <div className="flex items-center space-x-2">
               <Search className="h-5 w-5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Enter node name to search..."
+                placeholder="Enter table name to search..."
                 value={searchQuery}
                 onChange={handleSearchInputChange}
                 className="flex-grow"
-                aria-label="Search node names"
+                aria-label="Search table names"
               />
             </div>
           </div>
@@ -147,19 +147,19 @@ export default function HomePage() {
           )}
 
           {!isLoadingSearch && searchQuery && results.length === 0 && (
-            <p className="text-center text-muted-foreground py-4">No results found for "{searchQuery}".</p>
+            <p className="text-center text-muted-foreground py-4">No tables found for "{searchQuery}".</p>
           )}
 
           {results.length > 0 && (
             <ScrollArea className="h-[300px] w-full rounded-md border p-4 bg-background">
               <ul className="space-y-3">
                 {results.map((result, index) => (
-                  <li key={`${result.node_name}-${index}`} className="p-3 rounded-md shadow-sm border border-input hover:bg-secondary transition-colors">
+                  <li key={`${result.table_name}-${index}`} className="p-3 rounded-md shadow-sm border border-input hover:bg-secondary transition-colors">
                     <div className="flex items-start">
-                      <ServerIcon className="h-5 w-5 text-primary mr-3 mt-1 flex-shrink-0" />
+                      <Table className="h-5 w-5 text-primary mr-3 mt-1 flex-shrink-0" /> 
                       <div
                         className="text-sm prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: result.highlighted_name || result.node_name }}
+                        dangerouslySetInnerHTML={{ __html: result.highlighted_name || result.table_name }}
                       />
                     </div>
                   </li>

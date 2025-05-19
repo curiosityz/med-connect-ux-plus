@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'PG Navigator',
-  description: 'Full-text search for PostgreSQL nodes',
+  title: 'PG Table Navigator',
+  description: 'Full-text search for PostgreSQL tables',
 };
 
 export default function RootLayout({

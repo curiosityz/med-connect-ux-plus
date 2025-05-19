@@ -1,11 +1,11 @@
 
 "use server";
 
-import { Client } from 'pg';
 import type { QueryResultRow } from 'pg';
+import { Client } from 'pg';
 
-interface NodeSearchResult extends QueryResultRow {
-  node_name: string;
+interface TableSearchResult extends QueryResultRow {
+  table_name: string;
   highlighted_name: string;
 }
 
@@ -35,7 +35,7 @@ export async function testConnection(): Promise<{ success: boolean; message: str
   }
 }
 
-export async function searchNodes(query: string): Promise<{ success: boolean; results?: NodeSearchResult[]; message?: string }> {
+export async function searchTables(query: string): Promise<{ success: boolean; results?: TableSearchResult[]; message?: string }> {
   if (!query.trim()) {
     return { success: true, results: [] };
   }
@@ -43,21 +43,26 @@ export async function searchNodes(query: string): Promise<{ success: boolean; re
   const client = new Client(dbConfig);
   try {
     await client.connect();
+    // Search for table names in information_schema.tables
+    // Exclude common system schemas and 'spock' schema
     const searchQuery = `
       SELECT 
-        node_name,
-        ts_headline('pg_catalog.english', node_name, websearch_to_tsquery('pg_catalog.english', $1), 'HighlightAll=FALSE,StartSel=<mark>,StopSel=</mark>') as highlighted_name
-      FROM spock.node
-      WHERE to_tsvector('pg_catalog.english', node_name) @@ websearch_to_tsquery('pg_catalog.english', $1)
-      ORDER BY ts_rank(to_tsvector('pg_catalog.english', node_name), websearch_to_tsquery('pg_catalog.english', $1)) DESC
+        table_name,
+        ts_headline('pg_catalog.english', table_name, websearch_to_tsquery('pg_catalog.english', $1), 'StartSel=<mark>,StopSel=</mark>,HighlightAll=FALSE') as highlighted_name
+      FROM information_schema.tables
+      WHERE 
+        table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'spock')
+        AND to_tsvector('pg_catalog.english', table_name) @@ websearch_to_tsquery('pg_catalog.english', $1)
+      ORDER BY ts_rank(to_tsvector('pg_catalog.english', table_name), websearch_to_tsquery('pg_catalog.english', $1)) DESC
       LIMIT 20;
     `;
-    const res = await client.query<NodeSearchResult>(searchQuery, [query]);
+    const res = await client.query<TableSearchResult>(searchQuery, [query]);
     return { success: true, results: res.rows };
   } catch (error: any) {
-    console.error('Search Error:', error);
-    return { success: false, message: error.message || 'An error occurred during search.', results: [] };
+    console.error('Search Tables Error:', error);
+    return { success: false, message: error.message || 'An error occurred during table search.', results: [] };
   } finally {
     await client.end();
   }
 }
+
