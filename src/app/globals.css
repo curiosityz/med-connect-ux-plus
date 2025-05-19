@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
     --background: 0 0% 96.1%; /* Light Gray #F5F5F5 */
@@ -99,13 +95,16 @@ body {
     --sidebar-border: 240 10% 12%;
     --sidebar-ring: 231 48% 60%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: Arial, Helvetica, sans-serif; /* Existing font declaration */
+  }
+  mark {
+    background-color: hsl(var(--accent) / 0.3); /* Use HSL for alpha with CSS var */
+    @apply rounded px-1 text-foreground; /* Apply other Tailwind classes */
   }
 }

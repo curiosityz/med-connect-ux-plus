@@ -14,7 +14,7 @@ const dbConfig = {
   host: process.env.PG_HOST,
   user: process.env.PG_USER,
   database: process.env.PG_DATABASE,
-  password: process.env.NEXT_DB_PASSWORD, // Changed from PG_PASSWORD
+  password: process.env.NEXT_DB_PASSWORD,
   port: process.env.PG_PORT ? parseInt(process.env.PG_PORT, 10) : 5432,
   ssl: process.env.PG_SSLMODE === 'require'
     ? { rejectUnauthorized: false } // NOTE: For production, prefer providing CA certs and setting rejectUnauthorized to true.
@@ -46,7 +46,7 @@ export async function searchNodes(query: string): Promise<{ success: boolean; re
     const searchQuery = `
       SELECT 
         node_name,
-        ts_headline('pg_catalog.english', node_name, websearch_to_tsquery('pg_catalog.english', $1), 'HighlightAll=FALSE,StartSel=<mark class=\"bg-accent/30 rounded px-1\">,StopSel=</mark>') as highlighted_name
+        ts_headline('pg_catalog.english', node_name, websearch_to_tsquery('pg_catalog.english', $1), 'HighlightAll=FALSE,StartSel=<mark>,StopSel=</mark>') as highlighted_name
       FROM spock.node
       WHERE to_tsvector('pg_catalog.english', node_name) @@ websearch_to_tsquery('pg_catalog.english', $1)
       ORDER BY ts_rank(to_tsvector('pg_catalog.english', node_name), websearch_to_tsquery('pg_catalog.english', $1)) DESC
