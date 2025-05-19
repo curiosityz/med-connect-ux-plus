@@ -14,7 +14,7 @@ const dbConfig = {
   host: process.env.PG_HOST,
   user: process.env.PG_USER,
   database: process.env.PG_DATABASE,
-  password: process.env.PG_PASSWORD,
+  password: process.env.NEXT_DB_PASSWORD, // Changed from PG_PASSWORD
   port: process.env.PG_PORT ? parseInt(process.env.PG_PORT, 10) : 5432,
   ssl: process.env.PG_SSLMODE === 'require'
     ? { rejectUnauthorized: false } // NOTE: For production, prefer providing CA certs and setting rejectUnauthorized to true.
@@ -43,10 +43,6 @@ export async function searchNodes(query: string): Promise<{ success: boolean; re
   const client = new Client(dbConfig);
   try {
     await client.connect();
-    // It's good practice to use a specific dictionary, e.g., 'english'
-    // HighlightAll=TRUE might be too aggressive for long text, but fine for node_name
-    // Using 'simple' dictionary for broader matching without stemming, if 'english' is too restrictive or not configured.
-    // Or use 'pg_catalog.english' for built-in english.
     const searchQuery = `
       SELECT 
         node_name,
@@ -60,14 +56,7 @@ export async function searchNodes(query: string): Promise<{ success: boolean; re
     return { success: true, results: res.rows };
   } catch (error: any) {
     console.error('Search Error:', error);
-    // Check for common errors, like relation not found
-     if (error.message.includes('relation "spock.node" does not exist')) {
-      return { success: false, message: 'The table "spock.node" was not found. Please ensure it exists.' };
-    }
-    if (error.message.includes('text search configuration')) {
-       return { success: false, message: 'Text search configuration error. Please check PostgreSQL setup.'};
-    }
-    return { success: false, message: error.message || 'Failed to perform search.' };
+    return { success: false, message: error.message || 'An error occurred during search.', results: [] };
   } finally {
     await client.end();
   }
