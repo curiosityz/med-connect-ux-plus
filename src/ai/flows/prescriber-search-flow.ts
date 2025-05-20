@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A Genkit flow to search for prescribers based on medication, zipcode, and search area type.
+ * @fileOverview A Genkit flow to search for prescribers based on medication, zipcode, and search radius.
  *
  * - findPrescribers - The main async function to call the flow.
  * - PrescriberSearchInput - Input type for the flow.
@@ -14,8 +14,8 @@ import { z } from 'genkit';
 
 const PrescriberSearchInputSchema = z.object({
   medicationName: z.string().describe('The name of the medication to search for.'),
-  zipcode: z.string().min(3).max(10).describe('The 3 to 10 digit ZIP code to search within or near.'),
-  searchAreaType: z.enum(['exact', 'prefix3']).describe("The type of area search: 'exact' for the specific zipcode, 'prefix3' for zipcodes sharing the same first 3 digits."),
+  zipcode: z.string().length(5).describe('The 5-digit ZIP code to search around.'),
+  searchRadius: z.number().positive().describe("The search radius in miles from the zipcode's center."),
 });
 export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
@@ -24,6 +24,7 @@ const PrescriberSchema = z.object({
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
+  distance: z.number().describe("The distance in miles from the searched zipcode's center."),
 });
 
 const PrescriberSearchOutputSchema = z.object({
@@ -33,9 +34,6 @@ const PrescriberSearchOutputSchema = z.object({
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
 
-// This flow doesn't use an LLM prompt directly for generation,
-// but rather orchestrates the call to the database service.
-// It's defined as a flow for structural consistency within Genkit-powered features.
 const searchPrescribersFlow = ai.defineFlow(
   {
     name: 'searchPrescribersFlow',
@@ -47,26 +45,24 @@ const searchPrescribersFlow = ai.defineFlow(
       const prescribersFromDB: PrescriberRecord[] = await findPrescribersInDB({
         medicationName: input.medicationName,
         zipcode: input.zipcode,
-        searchAreaType: input.searchAreaType,
+        searchRadius: input.searchRadius,
       });
 
+      // The distance is already calculated by the DB service, so we just map.
       const formattedResults = prescribersFromDB.map(p => ({
         prescriberName: p.prescriber_name,
         address: p.prescriber_address,
         zipcode: p.prescriber_zipcode,
         medicationMatch: p.medication_name_match,
+        distance: parseFloat(p.distance.toFixed(1)), // Round to 1 decimal place
       }));
 
-      let searchDescription = `in zipcode ${input.zipcode}`;
-      if (input.searchAreaType === 'prefix3') {
-        searchDescription = `in the area around zipcode ${input.zipcode} (using 3-digit prefix ${input.zipcode.substring(0,3)}xxx)`;
-      }
-
-
+      let searchDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;
+      
       if (formattedResults.length === 0) {
         return { 
             results: [], 
-            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (npi_prescriptions, npi_addresses, npi_details), that they are correctly linked by NPI, and contain the relevant data.` 
+            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. This could be due to no matches, the input zipcode not being found in our location data, or no prescribers having valid geocoded addresses. Please ensure your database contains the 'npi_addresses_usps' table with zipcode coordinates and that the 'calculate_distance' SQL function is defined.`
         };
       }
 
@@ -77,13 +73,11 @@ const searchPrescribersFlow = ai.defineFlow(
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      // Ensure the output matches the schema even on error
       return { results: [], message: errorMessage };
     }
   }
 );
 
-// Exported wrapper function
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }

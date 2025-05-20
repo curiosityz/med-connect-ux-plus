@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Pin } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius } from 'lucide-react';
 import { findPrescribersAction } from './actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -18,14 +18,15 @@ interface PrescriberResult {
   address: string;
   zipcode: string;
   medicationMatch: string;
+  distance: number;
 }
 
-type SearchAreaType = "exact" | "prefix3";
+const searchRadii = [5, 10, 15, 25, 50, 100]; // Miles
 
 export default function HomePage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
-  const [searchAreaType, setSearchAreaType] = useState<SearchAreaType>("exact");
+  const [searchRadius, setSearchRadius] = useState<number>(searchRadii[2]); // Default to 15 miles
   const [results, setResults] = useState<PrescriberResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -37,20 +38,27 @@ export default function HomePage() {
     if (!medicationName.trim() || !zipcode.trim()) {
       toast({
         title: 'Missing Information',
-        description: 'Please enter both medication name and zipcode.',
+        description: 'Please enter medication name, 5-digit zipcode, and select a radius.',
         variant: 'destructive',
       });
       return;
     }
-    if (searchAreaType === "prefix3" && zipcode.trim().length < 3) {
+    if (zipcode.trim().length !== 5 || !/^\d{5}$/.test(zipcode.trim())) {
       toast({
-        title: 'Invalid Zipcode for Area Search',
-        description: 'Please enter at least 3 digits for a wider area search.',
+        title: 'Invalid Zipcode',
+        description: 'Please enter a valid 5-digit zipcode for radius search.',
         variant: 'destructive',
       });
       return;
     }
-
+    if (searchRadius <= 0) {
+      toast({
+        title: 'Invalid Radius',
+        description: 'Search radius must be greater than 0.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsLoading(true);
     setResults([]);
@@ -59,7 +67,7 @@ export default function HomePage() {
     const input: PrescriberSearchInput = { 
       medicationName, 
       zipcode,
-      searchAreaType
+      searchRadius
     };
     const response: PrescriberSearchOutput = await findPrescribersAction(input);
 
@@ -73,7 +81,7 @@ export default function HomePage() {
       setSearchMessage(response.message || 'No prescribers found matching your criteria.');
       toast({
         title: 'No Results',
-        description: response.message || 'No prescribers found. Please try different search terms or adjust the search area.',
+        description: response.message || 'No prescribers found. Try different search terms or a larger radius.',
         variant: 'default',
       });
     }
@@ -88,7 +96,7 @@ export default function HomePage() {
             <CardTitle className="text-3xl font-bold">Prescriber Finder</CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Find prescribers by medication and location.
+            Find prescribers by medication and location within a specified radius.
           </CardDescription>
         </CardHeader>
 
@@ -111,42 +119,46 @@ export default function HomePage() {
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="zipcode" className="flex items-center text-sm font-medium">
                   <MapPin className="h-4 w-4 mr-2 text-primary" />
-                  Zipcode
+                  Center Zipcode (5-digits)
                 </Label>
                 <Input
                   id="zipcode"
                   type="text"
-                  placeholder="e.g., 19018 (min 3 for area search)"
+                  placeholder="e.g., 19018"
                   value={zipcode}
                   onChange={(e) => setZipcode(e.target.value)}
                   aria-label="Zipcode"
-                  pattern="\d{3,5}(-\d{4})?"
-                  title="Enter a 3 to 5 digit zipcode (or 9-digit)."
+                  pattern="\d{5}"
+                  title="Enter a 5-digit zipcode."
+                  maxLength={5}
                   required
                   className="text-base md:text-sm"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="searchAreaType" className="flex items-center text-sm font-medium">
-                  <Pin className="h-4 w-4 mr-2 text-primary" />
-                  Search Area
+                <Label htmlFor="searchRadius" className="flex items-center text-sm font-medium">
+                  <Radius className="h-4 w-4 mr-2 text-primary" />
+                  Radius (miles)
                 </Label>
-                <Select value={searchAreaType} onValueChange={(value) => setSearchAreaType(value as SearchAreaType)}>
-                  <SelectTrigger id="searchAreaType" className="w-full text-base md:text-sm">
-                    <SelectValue placeholder="Select area" />
+                <Select 
+                  value={String(searchRadius)} 
+                  onValueChange={(value) => setSearchRadius(Number(value))}
+                >
+                  <SelectTrigger id="searchRadius" className="w-full text-base md:text-sm">
+                    <SelectValue placeholder="Select radius" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="exact">Exact Zipcode</SelectItem>
-                    <SelectItem value="prefix3">Wider Area (Same 3-digit prefix)</SelectItem>
+                    {searchRadii.map(radius => (
+                      <SelectItem key={radius} value={String(radius)}>{radius} miles</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
 
             <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? (
@@ -178,9 +190,12 @@ export default function HomePage() {
                 {results.map((prescriber, index) => (
                   <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
                     <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <BriefcaseMedical className="h-5 w-5 mr-2 text-primary" />
-                        {prescriber.prescriberName}
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <div className="flex items-center">
+                          <BriefcaseMedical className="h-5 w-5 mr-2 text-primary" />
+                          {prescriber.prescriberName}
+                        </div>
+                        <span className="text-sm font-normal text-muted-foreground">~{prescriber.distance} mi</span>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
@@ -194,7 +209,7 @@ export default function HomePage() {
           )}
         </CardContent>
         <CardFooter className="text-center text-xs text-muted-foreground">
-          <p>Search powered by Genkit and PostgreSQL. True radius search requires lat/lon data per address.</p>
+          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available in your database.</p>
         </CardFooter>
       </Card>
     </main>
