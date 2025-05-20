@@ -25,16 +25,30 @@ export interface PrescriberRecord extends QueryResultRow {
 interface FindPrescribersParams {
   medicationName: string;
   zipcode: string;
+  searchAreaType: 'exact' | 'prefix3';
 }
 
-export async function findPrescribersInDB({ medicationName, zipcode }: FindPrescribersParams): Promise<PrescriberRecord[]> {
+export async function findPrescribersInDB({ medicationName, zipcode, searchAreaType }: FindPrescribersParams): Promise<PrescriberRecord[]> {
   if (!medicationName || !zipcode) {
     return [];
+  }
+  if (searchAreaType === 'prefix3' && zipcode.length < 3) {
+    // Should be caught by UI validation, but good to have a safeguard
+    throw new Error("Zipcode must be at least 3 digits for prefix search.");
   }
 
   const client = new Client(dbConfig);
   try {
     await client.connect();
+    
+    let zipcodeCondition = 'na.provider_business_practice_location_address_postal_code = $2';
+    let zipcodeQueryParam = zipcode;
+
+    if (searchAreaType === 'prefix3') {
+      zipcodeCondition = 'na.provider_business_practice_location_address_postal_code LIKE $2';
+      zipcodeQueryParam = zipcode.substring(0, 3) + '%';
+    }
+
     const query = `
       SELECT 
         TRIM(CONCAT(nd.provider_first_name, ' ', nd.provider_last_name_legal_name)) AS prescriber_name,
@@ -58,17 +72,15 @@ export async function findPrescribersInDB({ medicationName, zipcode }: FindPresc
         public.npi_details nd ON np.npi = nd.npi
       WHERE 
         (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1)
-        AND na.provider_business_practice_location_address_postal_code = $2
+        AND ${zipcodeCondition}
       LIMIT 50; 
     `;
-    const res = await client.query<PrescriberRecord>(query, [`%${medicationName}%`, zipcode]);
+    const res = await client.query<PrescriberRecord>(query, [`%${medicationName}%`, zipcodeQueryParam]);
     return res.rows;
   } catch (error: any) {
     console.error('Error finding prescribers:', error);
-    // In a real app, you might throw the error or return a more specific error object
     throw new Error(`Database query failed: ${error.message}`);
   } finally {
     await client.end();
   }
 }
-

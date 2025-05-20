@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Pin } from 'lucide-react';
 import { findPrescribersAction } from './actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -18,9 +20,12 @@ interface PrescriberResult {
   medicationMatch: string;
 }
 
+type SearchAreaType = "exact" | "prefix3";
+
 export default function HomePage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
+  const [searchAreaType, setSearchAreaType] = useState<SearchAreaType>("exact");
   const [results, setResults] = useState<PrescriberResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -37,12 +42,25 @@ export default function HomePage() {
       });
       return;
     }
+    if (searchAreaType === "prefix3" && zipcode.trim().length < 3) {
+      toast({
+        title: 'Invalid Zipcode for Area Search',
+        description: 'Please enter at least 3 digits for a wider area search.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
 
     setIsLoading(true);
     setResults([]);
     setSearchMessage(null);
 
-    const input: PrescriberSearchInput = { medicationName, zipcode };
+    const input: PrescriberSearchInput = { 
+      medicationName, 
+      zipcode,
+      searchAreaType
+    };
     const response: PrescriberSearchOutput = await findPrescribersAction(input);
 
     setIsLoading(false);
@@ -55,7 +73,7 @@ export default function HomePage() {
       setSearchMessage(response.message || 'No prescribers found matching your criteria.');
       toast({
         title: 'No Results',
-        description: response.message || 'No prescribers found. Please try different search terms.',
+        description: response.message || 'No prescribers found. Please try different search terms or adjust the search area.',
         variant: 'default',
       });
     }
@@ -70,45 +88,65 @@ export default function HomePage() {
             <CardTitle className="text-3xl font-bold">Prescriber Finder</CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Find prescribers by medication and zipcode.
+            Find prescribers by medication and location.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="medicationName" className="flex items-center text-sm font-medium text-gray-700">
+              <Label htmlFor="medicationName" className="flex items-center text-sm font-medium">
                 <Pill className="h-4 w-4 mr-2 text-primary" />
                 Medication Name
-              </label>
+              </Label>
               <Input
                 id="medicationName"
                 type="text"
-                placeholder="e.g., Lisinopril, Amoxicillin"
+                placeholder="e.g., Lisinopril, Alprazolam"
                 value={medicationName}
                 onChange={(e) => setMedicationName(e.target.value)}
                 aria-label="Medication Name"
                 required
+                className="text-base md:text-sm"
               />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="zipcode" className="flex items-center text-sm font-medium">
+                  <MapPin className="h-4 w-4 mr-2 text-primary" />
+                  Zipcode
+                </Label>
+                <Input
+                  id="zipcode"
+                  type="text"
+                  placeholder="e.g., 19018 (min 3 for area search)"
+                  value={zipcode}
+                  onChange={(e) => setZipcode(e.target.value)}
+                  aria-label="Zipcode"
+                  pattern="\d{3,5}(-\d{4})?"
+                  title="Enter a 3 to 5 digit zipcode (or 9-digit)."
+                  required
+                  className="text-base md:text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="searchAreaType" className="flex items-center text-sm font-medium">
+                  <Pin className="h-4 w-4 mr-2 text-primary" />
+                  Search Area
+                </Label>
+                <Select value={searchAreaType} onValueChange={(value) => setSearchAreaType(value as SearchAreaType)}>
+                  <SelectTrigger id="searchAreaType" className="w-full text-base md:text-sm">
+                    <SelectValue placeholder="Select area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exact">Exact Zipcode</SelectItem>
+                    <SelectItem value="prefix3">Wider Area (Same 3-digit prefix)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="zipcode" className="flex items-center text-sm font-medium text-gray-700">
-                <MapPin className="h-4 w-4 mr-2 text-primary" />
-                Zipcode
-              </label>
-              <Input
-                id="zipcode"
-                type="text"
-                placeholder="e.g., 90210"
-                value={zipcode}
-                onChange={(e) => setZipcode(e.target.value)}
-                aria-label="Zipcode"
-                pattern="\d{5}(-\d{4})?" // Basic 5 or 9 digit zipcode pattern
-                title="Enter a 5 or 9 digit zipcode."
-                required
-              />
-            </div>
 
             <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? (
@@ -156,7 +194,7 @@ export default function HomePage() {
           )}
         </CardContent>
         <CardFooter className="text-center text-xs text-muted-foreground">
-          <p>Search powered by Genkit and PostgreSQL.</p>
+          <p>Search powered by Genkit and PostgreSQL. True radius search requires lat/lon data per address.</p>
         </CardFooter>
       </Card>
     </main>
