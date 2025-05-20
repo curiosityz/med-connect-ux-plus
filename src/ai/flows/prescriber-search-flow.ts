@@ -68,7 +68,7 @@ const searchPrescribersFlow = ai.defineFlow(
         phoneNumber: p.phone_number,
         medicationMatch: p.medication_name_match,
         distance: parseFloat(p.distance.toFixed(1)), // Round to 1 decimal place
-        confidenceScore: Math.min( (p.total_claim_count || 0) * 10, 100),
+        confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), // Updated: 20 claims = 100%
       }));
 
       let searchDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;
@@ -95,3 +95,4 @@ const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
+
