@@ -11,7 +11,7 @@ export default function PrivacyPage() {
         </CardHeader>
         <CardContent className="space-y-6 text-muted-foreground">
           <p>
-            Your privacy is important to us. It is PrescriberFinder's policy to
+            Your privacy is important to us. It is RX Prescribers's policy to
             respect your privacy regarding any information we may collect from
             you across our website.
           </p>

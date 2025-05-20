@@ -14,7 +14,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 text-center">
           <BriefcaseMedical className="h-16 w-16 text-primary mx-auto mb-6" />
           <h1 className="text-4xl md:text-6xl font-bold mb-6 text-foreground">
-            Find Prescribers, <span className="text-primary">Effortlessly</span>.
+            RX Prescribers: Find Care, <span className="text-primary">Effortlessly</span>.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Quickly locate medical prescribers by medication and zip code within your desired radius. Get the information you need, when you need it.
@@ -23,7 +23,7 @@ export default function LandingPage() {
           <div className="mt-16">
             <Image
               src="https://placehold.co/1200x600.png"
-              alt="Prescriber Finder Application Screenshot"
+              alt="RX Prescribers Application Screenshot"
               width={1200}
               height={600}
               className="rounded-lg shadow-2xl mx-auto border"
@@ -37,7 +37,7 @@ export default function LandingPage() {
       {/* Features Section */}
       <section id="features" className="py-16 md:py-24 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">Why Choose Us?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">Why Choose RX Prescribers?</h2>
           <p className="text-center text-muted-foreground mb-12 md:mb-16 max-w-xl mx-auto">
             Our platform provides powerful tools to connect you with the right healthcare providers.
           </p>
@@ -83,7 +83,7 @@ export default function LandingPage() {
       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 md:mb-16 text-foreground">
-            Simple Steps to Find a Prescriber
+            Simple Steps with RX Prescribers
           </h2>
           <div className="grid md:grid-cols-3 gap-8 text-center">
             <div className="flex flex-col items-center">
@@ -115,7 +115,7 @@ export default function LandingPage() {
       <section className="py-20 md:py-28 bg-background">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-foreground">
-            Ready to Find Your Prescriber?
+            Ready to Use RX Prescribers?
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">
             Join thousands of users simplifying their healthcare provider search.

@@ -26,7 +26,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Prescriber Finder Pro',
+  title: 'RX Prescribers',
   description: 'Effortlessly find medical prescribers by medication, zipcode, and radius.',
 };
 
@@ -45,7 +45,7 @@ export default function RootLayout({
                 <Link href="/" className="mr-6 flex items-center space-x-2">
                   <BriefcaseMedical className="h-7 w-7 text-primary" />
                   <span className="font-bold text-xl sm:inline-block">
-                    PrescriberFinder
+                    RX Prescribers
                   </span>
                 </Link>
                 <nav className="flex-1 items-center space-x-4 hidden md:flex">
@@ -85,7 +85,7 @@ export default function RootLayout({
             <Toaster />
             <footer className="py-8 border-t bg-background">
               <div className="container text-center text-sm text-muted-foreground">
-                © {new Date().getFullYear()} PrescriberFinder. All rights reserved.
+                © {new Date().getFullYear()} RX Prescribers. All rights reserved.
                 {/* Basic links, can be expanded later */}
                 <div className="mt-2 space-x-4">
                   <Link href="/terms" className="hover:text-primary">Terms of Service</Link>

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius } from 'lucide-react';
-import { findPrescribersAction } from '../actions'; // Adjusted import path
+import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
 interface PrescriberResult {
@@ -92,8 +92,8 @@ export default function FinderPage() {
       <Card className="w-full max-w-2xl shadow-xl bg-card">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-2">
-            <SearchCode className="h-10 w-10 text-primary mr-3" />
-            <CardTitle className="text-3xl font-bold">Prescriber Search</CardTitle>
+            <BriefcaseMedical className="h-10 w-10 text-primary mr-3" />
+            <CardTitle className="text-3xl font-bold">RX Prescribers Search</CardTitle>
           </div>
           <CardDescription className="text-lg">
             Find prescribers by medication and location within a specified radius.
