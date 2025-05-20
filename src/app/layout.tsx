@@ -83,10 +83,9 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
-            <footer className="py-8 border-t bg-background">
+            <footer className="py-8 border-t bg-secondary/50">
               <div className="container text-center text-sm text-muted-foreground">
                 © {new Date().getFullYear()} RX Prescribers. All rights reserved.
-                {/* Basic links, can be expanded later */}
                 <div className="mt-2 space-x-4">
                   <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
                   <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>

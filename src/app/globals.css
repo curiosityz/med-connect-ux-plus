@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 0 0% 96.1%; /* Light Gray #F5F5F5 */
-    --foreground: 0 0% 3.9%; /* Default dark text */
+    --background: 0 0% 96.1%; /* Light Gray - slightly off-white */
+    --foreground: 240 10% 3.9%; /* Default dark text - almost black */
 
     --card: 0 0% 100%; /* White cards */
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 240 10% 3.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 231 48% 48%; /* Deep Blue #3F51B5 */
+    --primary: 221 83% 53%; /* A vibrant, trustworthy blue */
     --primary-foreground: 0 0% 98%; /* Light text on primary */
 
-    --secondary: 0 0% 90%; /* Slightly darker gray for secondary elements */
-    --secondary-foreground: 0 0% 9%; /* Dark text on secondary */
+    --secondary: 210 40% 96.1%; /* Lighter gray for secondary elements */
+    --secondary-foreground: 240 10% 10%; /* Dark text on secondary */
 
-    --muted: 0 0% 92%; /* Muted gray, very close to background */
-    --muted-foreground: 0 0% 45.1%; /* Softer text for muted */
+    --muted: 210 40% 90%; /* Muted gray, slightly darker than secondary */
+    --muted-foreground: 240 5% 45%; /* Softer text for muted */
 
-    --accent: 254 50% 56%; /* Indigo #673AB7 */
+    --accent: 190 70% 45%; /* A calming teal/cyan as accent */
     --accent-foreground: 0 0% 98%; /* Light text on accent */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 89.8%; /* Border color */
-    --input: 0 0% 89.8%; /* Input background/border */
-    --ring: 231 48% 48%; /* Ring color using primary */
+    --border: 210 40% 88%; /* Border color */
+    --input: 210 40% 92%; /* Input background, slightly darker than card */
+    --ring: 221 83% 53%; /* Ring color using primary */
     
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -39,19 +39,19 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Sidebar variables adapted for new theme */
-    --sidebar-background: 0 0% 98%; /* Light gray, similar to card */
-    --sidebar-foreground: 0 0% 20%; /* Darker text for sidebar */
-    --sidebar-primary: 231 48% 48%; /* Primary blue for sidebar active items */
+    /* Sidebar variables - keeping them consistent with overall theme */
+    --sidebar-background: 0 0% 98%; 
+    --sidebar-foreground: 240 10% 15%; 
+    --sidebar-primary: 221 83% 53%; 
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%; /* Accent for hover, slightly darker than sidebar bg */
-    --sidebar-accent-foreground: 0 0% 9%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 231 48% 48%;
+    --sidebar-accent: 210 40% 92%; 
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 210 40% 85%;
+    --sidebar-ring: 221 83% 53%;
   }
 
   .dark {
-    --background: 240 10% 3.9%; /* Dark blue-gray */
+    --background: 240 10% 3.9%; 
     --foreground: 0 0% 98%;
 
     --card: 240 10% 6.9%;
@@ -60,24 +60,24 @@
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 231 48% 60%; /* Lighter Deep Blue for dark mode */
-    --primary-foreground: 231 48% 15%;
+    --primary: 221 83% 63%; /* Lighter Blue for dark mode */
+    --primary-foreground: 221 83% 15%;
 
     --secondary: 240 10% 10%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 10% 10%;
+    --muted: 240 10% 15%;
     --muted-foreground: 0 0% 63.9%;
 
-    --accent: 254 50% 65%; /* Lighter Indigo for dark mode */
-    --accent-foreground: 254 50% 15%;
+    --accent: 190 70% 55%; /* Lighter Teal/Cyan for dark mode */
+    --accent-foreground: 190 70% 10%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 240 10% 15%;
-    --input: 240 10% 15%;
-    --ring: 231 48% 60%;
+    --input: 240 10% 20%;
+    --ring: 221 83% 63%;
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -88,12 +88,12 @@
     /* Sidebar variables for dark theme */
     --sidebar-background: 240 10% 5.9%; 
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 231 48% 60%;
-    --sidebar-primary-foreground: 231 48% 10%;
+    --sidebar-primary: 221 83% 63%;
+    --sidebar-primary-foreground: 221 83% 10%;
     --sidebar-accent: 240 10% 12%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 10% 12%;
-    --sidebar-ring: 231 48% 60%;
+    --sidebar-ring: 221 83% 63%;
   }
 
   * {
@@ -101,10 +101,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: Arial, Helvetica, sans-serif; /* Existing font declaration */
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   }
   mark {
-    background-color: hsl(var(--accent) / 0.3); /* Use HSL for alpha with CSS var */
-    @apply rounded px-1 text-foreground; /* Apply other Tailwind classes */
+    background-color: hsl(var(--accent) / 0.3); 
+    @apply rounded px-1 text-foreground; 
   }
 }

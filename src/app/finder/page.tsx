@@ -160,27 +160,27 @@ export default function FinderPage() {
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button type="submit" disabled={isLoading} className="w-full text-lg py-6">
               {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
-                <Search className="mr-2 h-4 w-4" />
+                <Search className="mr-2 h-5 w-5" />
               )}
               Search Prescribers
             </Button>
           </form>
 
           {searchMessage && !isLoading && (
-            <div className={`p-3 rounded-md text-sm ${results.length > 0 ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'} flex items-center`}>
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <p>{searchMessage}</p>
+            <div className={`p-4 rounded-md text-sm flex items-start ${results.length > 0 ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+              <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
+              <p className="flex-grow">{searchMessage}</p>
             </div>
           )}
           
           {isLoading && (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Searching for prescribers...</p>
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-lg text-muted-foreground">Searching for prescribers...</p>
             </div>
           )}
 
@@ -192,15 +192,15 @@ export default function FinderPage() {
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center justify-between">
                         <div className="flex items-center">
-                          <BriefcaseMedical className="h-5 w-5 mr-2 text-primary" />
-                          {prescriber.prescriberName}
+                          <BriefcaseMedical className="h-5 w-5 mr-2 text-primary flex-shrink-0" />
+                          <span className="font-semibold">{prescriber.prescriberName}</span>
                         </div>
-                        <span className="text-sm font-normal text-muted-foreground">~{prescriber.distance} mi</span>
+                        <span className="text-sm font-medium text-primary whitespace-nowrap ml-2">~{prescriber.distance} mi</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm space-y-1">
+                    <CardContent className="text-sm space-y-1 text-muted-foreground">
                       <p><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
-                      <p><strong>Matched Medication:</strong> {prescriber.medicationMatch}</p>
+                      <p><strong>Matched Medication:</strong> <span className="font-medium text-foreground">{prescriber.medicationMatch}</span></p>
                     </CardContent>
                   </Card>
                 ))}
@@ -208,8 +208,8 @@ export default function FinderPage() {
             </ScrollArea>
           )}
         </CardContent>
-        <CardFooter className="text-center text-xs text-muted-foreground">
-          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available in your database. Data is for informational purposes only.</p>
+        <CardFooter className="text-center text-xs text-muted-foreground/80">
+          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available. Data is for informational purposes only.</p>
         </CardFooter>
       </Card>
     </main>
