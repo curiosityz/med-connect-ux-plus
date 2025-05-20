@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius, Phone, ShieldCheck, TrendingUp, Filter } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius, Phone, TrendingUp, Filter } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -33,6 +33,15 @@ const confidenceFilterOptions = [
   { value: 'low', label: 'Low (0-29%)' },
 ];
 
+const loadingPhrases = [
+  "Searching for prescribers...",
+  "Accessing medication database...",
+  "Scanning local area data...",
+  "Cross-referencing information...",
+  "Finalizing results...",
+  "Almost there!",
+];
+
 export default function FinderPage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
@@ -44,6 +53,8 @@ export default function FinderPage() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [currentLoadingPhrase, setCurrentLoadingPhrase] = useState(loadingPhrases[0]);
+
 
   const { toast } = useToast();
 
@@ -52,6 +63,23 @@ export default function FinderPage() {
     if (score >= 30) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+
+  useEffect(() => {
+    let phraseInterval: NodeJS.Timeout;
+    if (isLoading) {
+      let currentIndex = 0;
+      setCurrentLoadingPhrase(loadingPhrases[currentIndex]); 
+      phraseInterval = setInterval(() => {
+        currentIndex = (currentIndex + 1) % loadingPhrases.length;
+        setCurrentLoadingPhrase(loadingPhrases[currentIndex]);
+      }, 1800); 
+    }
+    return () => {
+      if (phraseInterval) {
+        clearInterval(phraseInterval);
+      }
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     let filtered = allPrescribers;
@@ -65,7 +93,6 @@ export default function FinderPage() {
     }
     setDisplayedPrescribers(filtered);
 
-    // Update search message when filters change and there are base results
     if (allPrescribers.length > 0 && !isLoading) {
         const baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
         if (confidenceFilter !== 'any') {
@@ -73,12 +100,11 @@ export default function FinderPage() {
         } else {
             setSearchMessage(baseMessage);
         }
-    } else if (!isLoading && allPrescribers.length === 0 && searchMessage) {
+    } else if (!isLoading && allPrescribers.length === 0 && searchMessage && searchMessage.startsWith("No prescribers found")) {
       // Keep the original "no results" message if that was the case
-      // This condition ensures we don't overwrite an initial "no results" message when filter changes
     }
 
-  }, [allPrescribers, confidenceFilter, medicationName, searchRadius, zipcode, isLoading]);
+  }, [allPrescribers, confidenceFilter, medicationName, searchRadius, zipcode, isLoading, searchMessage]);
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -123,8 +149,7 @@ export default function FinderPage() {
     setIsLoading(false);
 
     if (response.results.length > 0) {
-      setAllPrescribers(response.results); // This will trigger the useEffect
-      // Initial message will be set by useEffect based on raw results and filter
+      setAllPrescribers(response.results); 
     } else {
       setAllPrescribers([]);
       setDisplayedPrescribers([]);
@@ -250,12 +275,12 @@ export default function FinderPage() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-8 space-y-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-lg text-muted-foreground">Searching for prescribers...</p>
+              <p className="text-lg text-muted-foreground">{currentLoadingPhrase}</p>
             </div>
           )}
 
           {displayedPrescribers.length > 0 && !isLoading && (
-            <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner">
+            <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner animate-in fade-in-50 duration-700">
               <div className="space-y-3 p-3">
                 {displayedPrescribers.map((prescriber, index) => (
                   <Card key={index} className="shadow-md hover:shadow-lg transition-shadow bg-card">
@@ -302,4 +327,3 @@ export default function FinderPage() {
     </main>
   );
 }
-
