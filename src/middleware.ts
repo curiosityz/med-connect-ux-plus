@@ -5,11 +5,10 @@ export default clerkMiddleware({
   // Define routes that should be publicly accessible.
   // Clerk will automatically make sub-paths of these public as well (e.g., /sign-in/xyz).
   publicRoutes: [
+    '/', // Landing page
     '/sign-in',
     '/sign-up',
-    // If you have other public pages (e.g., a landing page at '/'), add them here.
-    // If your root '/' should also be public, add '/' to this array.
-    // Otherwise, by default, '/' will be protected.
+    // If you have other public pages add them here.
   ],
 });
 
@@ -19,3 +18,4 @@ export const config = {
   // and API routes if they are handled differently or don't need Clerk auth.
   matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
 };
+

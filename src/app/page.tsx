@@ -1,217 +1,128 @@
 
-"use client";
-
-import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius } from 'lucide-react';
-import { findPrescribersAction } from './actions';
-import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BriefcaseMedical, MapPinned, ShieldCheck, Zap, Target, Lightbulb, UserCheck } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { HeroCtaButton } from '@/components/landing/hero-cta-button';
 
-interface PrescriberResult {
-  prescriberName: string;
-  address: string;
-  zipcode: string;
-  medicationMatch: string;
-  distance: number;
-}
-
-const searchRadii = [5, 10, 15, 25, 50, 100]; // Miles
-
-export default function HomePage() {
-  const [medicationName, setMedicationName] = useState('');
-  const [zipcode, setZipcode] = useState('');
-  const [searchRadius, setSearchRadius] = useState<number>(searchRadii[2]); // Default to 15 miles
-  const [results, setResults] = useState<PrescriberResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchMessage, setSearchMessage] = useState<string | null>(null);
-
-  const { toast } = useToast();
-
-  const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!medicationName.trim() || !zipcode.trim()) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please enter medication name, 5-digit zipcode, and select a radius.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (zipcode.trim().length !== 5 || !/^\d{5}$/.test(zipcode.trim())) {
-      toast({
-        title: 'Invalid Zipcode',
-        description: 'Please enter a valid 5-digit zipcode for radius search.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (searchRadius <= 0) {
-      toast({
-        title: 'Invalid Radius',
-        description: 'Search radius must be greater than 0.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    setResults([]);
-    setSearchMessage(null);
-
-    const input: PrescriberSearchInput = { 
-      medicationName, 
-      zipcode,
-      searchRadius
-    };
-    const response: PrescriberSearchOutput = await findPrescribersAction(input);
-
-    setIsLoading(false);
-
-    if (response.results.length > 0) {
-      setResults(response.results);
-      setSearchMessage(response.message || `Found ${response.results.length} prescriber(s).`);
-    } else {
-      setResults([]);
-      setSearchMessage(response.message || 'No prescribers found matching your criteria.');
-      toast({
-        title: 'No Results',
-        description: response.message || 'No prescribers found. Try different search terms or a larger radius.',
-        variant: 'default',
-      });
-    }
-  };
-
+export default function LandingPage() {
   return (
-    <main className="flex-grow container mx-auto p-4 md:p-8 flex flex-col items-center">
-      <Card className="w-full max-w-2xl shadow-xl">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center mb-2">
-            <BriefcaseMedical className="h-10 w-10 text-primary mr-3" />
-            <CardTitle className="text-3xl font-bold">Prescriber Finder</CardTitle>
+    <div className="flex flex-col min-h-screen">
+      {/* Hero Section */}
+      <section className="py-20 md:py-32 bg-gradient-to-br from-primary/10 via-background to-background">
+        <div className="container mx-auto px-4 text-center">
+          <BriefcaseMedical className="h-16 w-16 text-primary mx-auto mb-6" />
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 text-foreground">
+            Find Prescribers, <span className="text-primary">Effortlessly</span>.
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
+            Quickly locate medical prescribers by medication and zip code within your desired radius. Get the information you need, when you need it.
+          </p>
+          <HeroCtaButton />
+          <div className="mt-16">
+            <Image
+              src="https://placehold.co/1200x600.png"
+              alt="Prescriber Finder Application Screenshot"
+              width={1200}
+              height={600}
+              className="rounded-lg shadow-2xl mx-auto border"
+              data-ai-hint="app screenshot healthcare"
+              priority
+            />
           </div>
-          <CardDescription className="text-lg">
-            Find prescribers by medication and location within a specified radius.
-          </CardDescription>
-        </CardHeader>
+        </div>
+      </section>
 
-        <CardContent className="space-y-6">
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="medicationName" className="flex items-center text-sm font-medium">
-                <Pill className="h-4 w-4 mr-2 text-primary" />
-                Medication Name
-              </Label>
-              <Input
-                id="medicationName"
-                type="text"
-                placeholder="e.g., Lisinopril, Alprazolam"
-                value={medicationName}
-                onChange={(e) => setMedicationName(e.target.value)}
-                aria-label="Medication Name"
-                required
-                className="text-base md:text-sm"
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="zipcode" className="flex items-center text-sm font-medium">
-                  <MapPin className="h-4 w-4 mr-2 text-primary" />
-                  Center Zipcode (5-digits)
-                </Label>
-                <Input
-                  id="zipcode"
-                  type="text"
-                  placeholder="e.g., 19018"
-                  value={zipcode}
-                  onChange={(e) => setZipcode(e.target.value)}
-                  aria-label="Zipcode"
-                  pattern="\d{5}"
-                  title="Enter a 5-digit zipcode."
-                  maxLength={5}
-                  required
-                  className="text-base md:text-sm"
-                />
+      {/* Features Section */}
+      <section id="features" className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">Why Choose Us?</h2>
+          <p className="text-center text-muted-foreground mb-12 md:mb-16 max-w-xl mx-auto">
+            Our platform provides powerful tools to connect you with the right healthcare providers.
+          </p>
+          <div className="grid md:grid-cols-3 gap-8">
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="items-center text-center">
+                <div className="p-3 bg-primary/10 rounded-full mb-4">
+                  <Target className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Precision Medication Search</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Easily search for prescribers by specific medication names or generic equivalents.
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="items-center text-center">
+                <div className="p-3 bg-primary/10 rounded-full mb-4">
+                  <MapPinned className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Radius-Based Location</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Define your search area with customizable radius options around any US zipcode.
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="items-center text-center">
+                <div className="p-3 bg-primary/10 rounded-full mb-4">
+                  <UserCheck className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Detailed Prescriber Info</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Access prescriber names, addresses, and matched medications at a glance.
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-16 md:py-24 bg-secondary/30">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 md:mb-16 text-foreground">
+            Simple Steps to Find a Prescriber
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8 text-center">
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-primary text-primary-foreground rounded-full mb-4">
+                <Lightbulb className="h-10 w-10" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="searchRadius" className="flex items-center text-sm font-medium">
-                  <Radius className="h-4 w-4 mr-2 text-primary" />
-                  Radius (miles)
-                </Label>
-                <Select 
-                  value={String(searchRadius)} 
-                  onValueChange={(value) => setSearchRadius(Number(value))}
-                >
-                  <SelectTrigger id="searchRadius" className="w-full text-base md:text-sm">
-                    <SelectValue placeholder="Select radius" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {searchRadii.map(radius => (
-                      <SelectItem key={radius} value={String(radius)}>{radius} miles</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">1. Enter Details</h3>
+              <p className="text-muted-foreground">Input the medication name and your central zipcode.</p>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-primary text-primary-foreground rounded-full mb-4">
+                <Zap className="h-10 w-10" />
               </div>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">2. Set Radius & Search</h3>
+              <p className="text-muted-foreground">Choose your desired search radius and hit search.</p>
             </div>
-
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-2 h-4 w-4" />
-              )}
-              Search Prescribers
-            </Button>
-          </form>
-
-          {searchMessage && !isLoading && (
-            <div className={`p-3 rounded-md text-sm ${results.length > 0 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} flex items-center`}>
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <p>{searchMessage}</p>
-            </div>
-          )}
-          
-          {isLoading && (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Searching for prescribers...</p>
-            </div>
-          )}
-
-          {results.length > 0 && !isLoading && (
-            <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-background">
-              <div className="space-y-3 p-3">
-                {results.map((prescriber, index) => (
-                  <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center justify-between">
-                        <div className="flex items-center">
-                          <BriefcaseMedical className="h-5 w-5 mr-2 text-primary" />
-                          {prescriber.prescriberName}
-                        </div>
-                        <span className="text-sm font-normal text-muted-foreground">~{prescriber.distance} mi</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm space-y-1">
-                      <p><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
-                      <p><strong>Matched Medication:</strong> {prescriber.medicationMatch}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-primary text-primary-foreground rounded-full mb-4">
+                <ShieldCheck className="h-10 w-10" />
               </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-        <CardFooter className="text-center text-xs text-muted-foreground">
-          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available in your database.</p>
-        </CardFooter>
-      </Card>
-    </main>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">3. Get Results</h3>
+              <p className="text-muted-foreground">Instantly view a list of matching prescribers.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-20 md:py-28 bg-background">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-foreground">
+            Ready to Find Your Prescriber?
+          </h2>
+          <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">
+            Join thousands of users simplifying their healthcare provider search.
+          </p>
+          <HeroCtaButton />
+        </div>
+      </section>
+    </div>
   );
 }

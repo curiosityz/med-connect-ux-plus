@@ -12,7 +12,7 @@ import {
 } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { BriefcaseMedical } from 'lucide-react';
+import { BriefcaseMedical, LogIn, UserPlus, SearchCode } from 'lucide-react';
 
 
 const geistSans = Geist({
@@ -26,8 +26,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Prescriber Finder',
-  description: 'Find prescribers by medication, zipcode, and radius',
+  title: 'Prescriber Finder Pro',
+  description: 'Effortlessly find medical prescribers by medication, zipcode, and radius.',
 };
 
 export default function RootLayout({
@@ -38,24 +38,43 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
           <div className="min-h-screen flex flex-col">
             <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="container flex h-14 items-center">
+              <div className="container flex h-16 items-center">
                 <Link href="/" className="mr-6 flex items-center space-x-2">
-                  <BriefcaseMedical className="h-6 w-6 text-primary" />
-                  <span className="font-bold sm:inline-block">
-                    Prescriber Finder
+                  <BriefcaseMedical className="h-7 w-7 text-primary" />
+                  <span className="font-bold text-xl sm:inline-block">
+                    PrescriberFinder
                   </span>
                 </Link>
-                <div className="flex flex-1 items-center justify-end space-x-4">
+                <nav className="flex-1 items-center space-x-4 hidden md:flex">
+                  <SignedIn>
+                    <Link href="/finder" passHref>
+                      <Button variant="ghost" className="text-foreground/80 hover:text-foreground">
+                        <SearchCode className="mr-2 h-4 w-4" />
+                        Finder App
+                      </Button>
+                    </Link>
+                  </SignedIn>
+                </nav>
+                <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
                   <SignedIn>
                     <UserButton afterSignOutUrl="/" />
                   </SignedIn>
                   <SignedOut>
                     <SignInButton mode="modal">
-                      <Button variant="outline">Sign In</Button>
+                      <Button variant="ghost">
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Sign In
+                      </Button>
                     </SignInButton>
+                    <Link href="/sign-up" passHref>
+                      <Button>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Sign Up
+                      </Button>
+                    </Link>
                   </SignedOut>
                 </div>
               </div>
@@ -64,6 +83,16 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
+            <footer className="py-8 border-t bg-background">
+              <div className="container text-center text-sm text-muted-foreground">
+                © {new Date().getFullYear()} PrescriberFinder. All rights reserved.
+                {/* Basic links, can be expanded later */}
+                <div className="mt-2 space-x-4">
+                  <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
+                  <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
+                </div>
+              </div>
+            </footer>
           </div>
         </body>
       </html>
