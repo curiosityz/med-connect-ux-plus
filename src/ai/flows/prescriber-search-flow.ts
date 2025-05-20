@@ -56,13 +56,17 @@ export const searchPrescribersFlow = ai.defineFlow(
       }));
 
       if (formattedResults.length === 0) {
-        return { results: [], message: `No prescribers found for "${input.medicationName}" in zipcode ${input.zipcode}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (prescribers, medications, prescriptions) and data.` };
+        return { results: [], message: `No prescribers found for "${input.medicationName}" in zipcode ${input.zipcode}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (npi_prescriptions, npi_addresses, npi_details), that they are correctly linked by NPI, and contain the relevant data.` };
       }
 
       return { results: formattedResults };
     } catch (error) {
       console.error("Error in searchPrescribersFlow:", error);
-      return { results: [], message: "An unexpected error occurred while searching for prescribers." };
+      let errorMessage = "An unexpected error occurred while searching for prescribers.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      return { results: [], message: errorMessage };
     }
   }
 );
@@ -71,3 +75,4 @@ export const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
+
