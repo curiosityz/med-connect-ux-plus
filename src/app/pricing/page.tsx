@@ -82,12 +82,17 @@ export default function PricingPage() {
               </ul>
             </CardContent>
             <CardFooter className="mt-auto">
-              {/* In a real app, this button would lead to a checkout flow */}
+              {/* 
+                TODO: Integrate with Clerk to initiate subscription for plan.id.
+                This might involve redirecting to a Clerk-hosted checkout URL
+                or using Clerk's client-side SDK to open a checkout modal.
+                Example: onClick={() => redirectToClerkCheckout(plan.id)} 
+              */}
               <Button
                 size="lg"
                 className={`w-full text-lg py-6 ${plan.highlight ? '' : 'bg-primary/80 hover:bg-primary/90'}`}
                 variant={plan.highlight ? 'default' : 'secondary'}
-                disabled // Disabled for now as it's a placeholder
+                // onClick={() => handleSubscribe(plan.id)} // Replace with your Clerk integration
               >
                 {plan.cta}
               </Button>
@@ -103,3 +108,4 @@ export default function PricingPage() {
     </div>
   );
 }
+
