@@ -37,6 +37,13 @@ const PrescriberSearchOutputSchema = z.object({
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
+const normalizeCredentials = (credentials?: string): string | undefined => {
+  if (!credentials) return undefined;
+  return credentials
+    .replace(/\./g, '') // Remove periods: M.D. -> MD
+    .replace(/\s+/g, '') // Remove spaces: M D -> MD
+    .toUpperCase();     // Convert to uppercase: md -> MD
+};
 
 const searchPrescribersFlow = ai.defineFlow(
   {
@@ -54,8 +61,8 @@ const searchPrescribersFlow = ai.defineFlow(
 
       const formattedResults = prescribersFromDB.map(p => ({
         prescriberName: p.prescriber_name,
-        credentials: p.credentials,
-        specialization: p.specialization,
+        credentials: normalizeCredentials(p.credentials),
+        specialization: p.specialization, // Specialization is often a phrase, less straightforward to normalize simply
         address: p.prescriber_address,
         zipcode: p.prescriber_zipcode,
         phoneNumber: p.phone_number,

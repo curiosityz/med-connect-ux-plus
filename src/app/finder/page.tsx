@@ -42,6 +42,19 @@ const loadingPhrases = [
   "Almost there!",
 ];
 
+const formatPhoneNumber = (phoneNumberString?: string): string | undefined => {
+  if (!phoneNumberString) return undefined;
+  const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+  if (cleaned.length === 10) {
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+  return phoneNumberString; // Return original if not 10 digits or already formatted differently
+};
+
+
 export default function FinderPage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
@@ -94,15 +107,23 @@ export default function FinderPage() {
     setDisplayedPrescribers(filtered);
 
     if (allPrescribers.length > 0 && !isLoading) {
-        const baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
-        if (confidenceFilter !== 'any') {
-            setSearchMessage(`${baseMessage} Showing ${filtered.length} after filtering by confidence.`);
+        // Preserve the original API message if it was "No prescribers found..."
+        const originalNoResultsMessage = searchMessage && searchMessage.startsWith("No prescribers found") ? searchMessage : null;
+        
+        if (originalNoResultsMessage) {
+            setSearchMessage(originalNoResultsMessage);
         } else {
-            setSearchMessage(baseMessage);
+            const baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
+            if (confidenceFilter !== 'any') {
+                setSearchMessage(`${baseMessage} Showing ${filtered.length} after filtering by confidence.`);
+            } else {
+                setSearchMessage(baseMessage);
+            }
         }
     } else if (!isLoading && allPrescribers.length === 0 && searchMessage && searchMessage.startsWith("No prescribers found")) {
-      // Keep the original "no results" message if that was the case
+      // Keep the original "no results" message
     }
+
 
   }, [allPrescribers, confidenceFilter, medicationName, searchRadius, zipcode, isLoading, searchMessage]);
 
@@ -137,7 +158,7 @@ export default function FinderPage() {
     setIsLoading(true);
     setAllPrescribers([]);
     setDisplayedPrescribers([]);
-    setSearchMessage(null);
+    setSearchMessage(null); // Clear previous search message
 
     const input: PrescriberSearchInput = { 
       medicationName, 
@@ -149,12 +170,13 @@ export default function FinderPage() {
     setIsLoading(false);
 
     if (response.results.length > 0) {
-      setAllPrescribers(response.results); 
+      setAllPrescribers(response.results);
+      // setSearchMessage will be updated by the useEffect hook
     } else {
       setAllPrescribers([]);
       setDisplayedPrescribers([]);
       const noResultsMessage = response.message || 'No prescribers found matching your criteria.';
-      setSearchMessage(noResultsMessage);
+      setSearchMessage(noResultsMessage); // Set the "no results" message from API
       toast({
         title: 'No Results',
         description: noResultsMessage,
@@ -266,7 +288,11 @@ export default function FinderPage() {
           </form>
 
           {searchMessage && !isLoading && (
-            <div className={`p-4 rounded-md text-sm flex items-start ${displayedPrescribers.length > 0 || (allPrescribers.length > 0 && confidenceFilter === 'any') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+            <div className={`p-4 rounded-md text-sm flex items-start ${
+                searchMessage.startsWith("No prescribers found") 
+                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
+                : 'bg-green-50 text-green-700 border border-green-200'
+            }`}>
               <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
               <p className="flex-grow">{searchMessage}</p>
             </div>
@@ -304,7 +330,7 @@ export default function FinderPage() {
                       {prescriber.phoneNumber && (
                         <p className="flex items-center">
                           <Phone className="h-3.5 w-3.5 mr-1.5 text-primary/70" />
-                          <strong>Phone:</strong>&nbsp;{prescriber.phoneNumber}
+                          <strong>Phone:</strong>&nbsp;{formatPhoneNumber(prescriber.phoneNumber)}
                         </p>
                       )}
                       <p><strong>Matched Medication:</strong> <span className="font-medium text-foreground">{prescriber.medicationMatch}</span></p>
