@@ -21,6 +21,10 @@ export interface PrescriberRecord extends QueryResultRow {
   prescriber_zipcode: string;
   medication_name_match: string;
   distance: number; // Distance in miles
+  phone_number?: string;
+  credentials?: string;
+  specialization?: string;
+  total_claim_count?: number;
 }
 
 interface FindPrescribersParams {
@@ -46,7 +50,6 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
 
     if (geoInputZipQuery.rows.length === 0) {
       console.warn(`No coordinates found for input zipcode: ${zipcode}`);
-      // Consider returning a specific message to the flow if the input zipcode is not found
       return [];
     }
     const inputLat = geoInputZipQuery.rows[0].latitude;
@@ -69,7 +72,11 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
               ', ', na.provider_business_practice_location_address_state_name
           )) AS prescriber_address,
           LEFT(na.provider_business_practice_location_address_postal_code, 5) AS prescriber_zipcode,
+          na.provider_business_practice_location_address_telephone_number AS phone_number,
+          nd.provider_credential_text AS credentials,
+          nd.healthcare_provider_taxonomy_1_specialization AS specialization,
           np.drug_name AS medication_name_match,
+          np.total_claim_count,
           prescriber_geo.latitude AS prescriber_lat,
           prescriber_geo.longitude AS prescriber_lon
         FROM 
@@ -88,7 +95,11 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         pb.prescriber_name,
         pb.prescriber_address,
         pb.prescriber_zipcode,
+        pb.phone_number,
+        pb.credentials,
+        pb.specialization,
         pb.medication_name_match,
+        pb.total_claim_count,
         calculate_distance($2, $3, pb.prescriber_lat, pb.prescriber_lon, 'miles') AS distance
       FROM PrescriberBase pb
       WHERE 

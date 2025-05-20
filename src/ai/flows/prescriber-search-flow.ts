@@ -21,10 +21,14 @@ export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
 const PrescriberSchema = z.object({
   prescriberName: z.string().describe("The name of the prescriber."),
+  credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."),
+  specialization: z.string().optional().describe("The prescriber's specialization."),
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
+  phoneNumber: z.string().optional().describe("The prescriber's phone number."),
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
   distance: z.number().describe("The distance in miles from the searched zipcode's center."),
+  confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count (0-100)."),
 });
 
 const PrescriberSearchOutputSchema = z.object({
@@ -48,13 +52,16 @@ const searchPrescribersFlow = ai.defineFlow(
         searchRadius: input.searchRadius,
       });
 
-      // The distance is already calculated by the DB service, so we just map.
       const formattedResults = prescribersFromDB.map(p => ({
         prescriberName: p.prescriber_name,
+        credentials: p.credentials,
+        specialization: p.specialization,
         address: p.prescriber_address,
         zipcode: p.prescriber_zipcode,
+        phoneNumber: p.phone_number,
         medicationMatch: p.medication_name_match,
         distance: parseFloat(p.distance.toFixed(1)), // Round to 1 decimal place
+        confidenceScore: Math.min( (p.total_claim_count || 0) * 10, 100),
       }));
 
       let searchDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;

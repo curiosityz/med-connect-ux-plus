@@ -9,16 +9,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius, Phone, ShieldCheck, TrendingUp } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
 interface PrescriberResult {
   prescriberName: string;
+  credentials?: string;
+  specialization?: string;
   address: string;
   zipcode: string;
+  phoneNumber?: string;
   medicationMatch: string;
   distance: number;
+  confidenceScore: number;
 }
 
 const searchRadii = [5, 10, 15, 25, 50, 100]; // Miles
@@ -32,6 +36,12 @@ export default function FinderPage() {
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
 
   const { toast } = useToast();
+
+  const getConfidenceColor = (score: number) => {
+    if (score >= 70) return 'bg-green-500';
+    if (score >= 30) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -194,13 +204,30 @@ export default function FinderPage() {
                         <div className="flex items-center">
                           <BriefcaseMedical className="h-5 w-5 mr-2 text-primary flex-shrink-0" />
                           <span className="font-semibold">{prescriber.prescriberName}</span>
+                          {prescriber.credentials && <span className="ml-1.5 text-sm text-muted-foreground">({prescriber.credentials})</span>}
                         </div>
                         <span className="text-sm font-medium text-primary whitespace-nowrap ml-2">~{prescriber.distance} mi</span>
                       </CardTitle>
+                      {prescriber.specialization && (
+                        <CardDescription className="text-xs text-primary/80 -mt-1">
+                           Specialization: {prescriber.specialization}
+                        </CardDescription>
+                      )}
                     </CardHeader>
-                    <CardContent className="text-sm space-y-1 text-muted-foreground">
+                    <CardContent className="text-sm space-y-1.5 text-muted-foreground">
                       <p><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
+                      {prescriber.phoneNumber && (
+                        <p className="flex items-center">
+                          <Phone className="h-3.5 w-3.5 mr-1.5 text-primary/70" />
+                          <strong>Phone:</strong>&nbsp;{prescriber.phoneNumber}
+                        </p>
+                      )}
                       <p><strong>Matched Medication:</strong> <span className="font-medium text-foreground">{prescriber.medicationMatch}</span></p>
+                      <div className="flex items-center pt-1">
+                        <TrendingUp className="h-4 w-4 mr-1.5 text-primary/70" />
+                        <strong>Confidence:</strong>&nbsp;{prescriber.confidenceScore}%
+                        <div className={`w-3 h-3 rounded-full ml-2 ${getConfidenceColor(prescriber.confidenceScore)}`} title={`Confidence Score: ${prescriber.confidenceScore}%`}></div>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
