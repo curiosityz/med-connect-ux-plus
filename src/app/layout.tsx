@@ -12,7 +12,7 @@ import {
 } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { BriefcaseMedical, LogIn, UserPlus, SearchCode } from 'lucide-react';
+import { BriefcaseMedical, LogIn, UserPlus, SearchCode, DollarSign } from 'lucide-react';
 
 
 const geistSans = Geist({
@@ -57,6 +57,12 @@ export default function RootLayout({
                       </Button>
                     </Link>
                   </SignedIn>
+                  <Link href="/pricing" passHref>
+                    <Button variant="ghost" className="text-foreground/80 hover:text-foreground">
+                      <DollarSign className="mr-2 h-4 w-4" />
+                      Pricing
+                    </Button>
+                  </Link>
                 </nav>
                 <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
                   <SignedIn>
