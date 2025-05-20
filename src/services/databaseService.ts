@@ -15,53 +15,6 @@ const dbConfig = {
     : undefined,
 };
 
-/*
-  NOTE: You need to create the following SQL function in your PostgreSQL database
-  for the radius search to work. This function calculates the distance between
-  two geographic points using the Haversine formula.
-
-  CREATE OR REPLACE FUNCTION calculate_distance(
-      lat1 double precision,
-      lon1 double precision,
-      lat2 double precision,
-      lon2 double precision,
-      units VARCHAR DEFAULT 'miles' -- 'miles' or 'km'
-  )
-  RETURNS double precision AS $$
-  DECLARE
-      R double precision;
-      phi1 double precision;
-      phi2 double precision;
-      delta_phi double precision;
-      delta_lambda double precision;
-      a double precision;
-      c double precision;
-      distance double precision;
-  BEGIN
-      IF units = 'miles' THEN
-          R := 3959; -- Radius of the Earth in miles
-      ELSE
-          R := 6371; -- Radius of the Earth in kilometers
-      END IF;
-
-      phi1 := radians(lat1);
-      phi2 := radians(lat2);
-      delta_phi := radians(lat2 - lat1);
-      delta_lambda := radians(lon2 - lon1);
-
-      a := sin(delta_phi / 2.0) * sin(delta_phi / 2.0) +
-          cos(phi1) * cos(phi2) *
-          sin(delta_lambda / 2.0) * sin(delta_lambda / 2.0);
-      c := 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
-
-      distance := R * c;
-
-      RETURN distance;
-  END;
-  $$ LANGUAGE plpgsql
-  IMMUTABLE;
-*/
-
 export interface PrescriberRecord extends QueryResultRow {
   prescriber_name: string;
   prescriber_address: string;
@@ -115,7 +68,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
               ', ', na.provider_business_practice_location_address_city_name,
               ', ', na.provider_business_practice_location_address_state_name
           )) AS prescriber_address,
-          na.provider_business_practice_location_address_postal_code AS prescriber_zipcode,
+          LEFT(na.provider_business_practice_location_address_postal_code, 5) AS prescriber_zipcode,
           np.drug_name AS medication_name_match,
           prescriber_geo.latitude AS prescriber_lat,
           prescriber_geo.longitude AS prescriber_lon
@@ -148,9 +101,11 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     return res.rows;
   } catch (error: any) {
     console.error('Error finding prescribers with radius search:', error);
-    // Check if the error is due to the calculate_distance function not existing
     if (error.message && error.message.includes("function calculate_distance") && error.message.includes("does not exist")) {
-        throw new Error(`Database query failed: The 'calculate_distance' SQL function is not defined. Please create it in your database. Details: ${error.message}`);
+        throw new Error(`Database query failed: The 'calculate_distance' SQL function is not defined in your database, or it is not accessible. Please ensure it has been created and the application's database user has permission to execute it. Details: ${error.message}`);
+    }
+     if (error.message && error.message.includes("Invalid unit")) {
+        throw new Error(`Database query failed: The 'calculate_distance' SQL function was called with an invalid unit. Ensure it supports 'miles'. Details: ${error.message}`);
     }
     throw new Error(`Database query failed: ${error.message}`);
   } finally {
