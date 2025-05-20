@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius, Phone, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Radius, Phone, ShieldCheck, TrendingUp, Filter } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -26,12 +26,22 @@ interface PrescriberResult {
 }
 
 const searchRadii = [5, 10, 15, 25, 50, 100]; // Miles
+const confidenceFilterOptions = [
+  { value: 'any', label: 'Any Confidence' },
+  { value: 'high', label: 'High (70-100%)' },
+  { value: 'medium', label: 'Medium (30-69%)' },
+  { value: 'low', label: 'Low (0-29%)' },
+];
 
 export default function FinderPage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
   const [searchRadius, setSearchRadius] = useState<number>(searchRadii[2]); // Default to 15 miles
-  const [results, setResults] = useState<PrescriberResult[]>([]);
+  const [confidenceFilter, setConfidenceFilter] = useState<string>('any');
+  
+  const [allPrescribers, setAllPrescribers] = useState<PrescriberResult[]>([]);
+  const [displayedPrescribers, setDisplayedPrescribers] = useState<PrescriberResult[]>([]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
 
@@ -42,6 +52,34 @@ export default function FinderPage() {
     if (score >= 30) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+
+  useEffect(() => {
+    let filtered = allPrescribers;
+    if (confidenceFilter !== 'any') {
+      filtered = allPrescribers.filter(p => {
+        if (confidenceFilter === 'high') return p.confidenceScore >= 70;
+        if (confidenceFilter === 'medium') return p.confidenceScore >= 30 && p.confidenceScore < 70;
+        if (confidenceFilter === 'low') return p.confidenceScore < 30;
+        return true;
+      });
+    }
+    setDisplayedPrescribers(filtered);
+
+    // Update search message when filters change and there are base results
+    if (allPrescribers.length > 0 && !isLoading) {
+        const baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
+        if (confidenceFilter !== 'any') {
+            setSearchMessage(`${baseMessage} Showing ${filtered.length} after filtering by confidence.`);
+        } else {
+            setSearchMessage(baseMessage);
+        }
+    } else if (!isLoading && allPrescribers.length === 0 && searchMessage) {
+      // Keep the original "no results" message if that was the case
+      // This condition ensures we don't overwrite an initial "no results" message when filter changes
+    }
+
+  }, [allPrescribers, confidenceFilter, medicationName, searchRadius, zipcode, isLoading]);
+
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,7 +109,8 @@ export default function FinderPage() {
     }
 
     setIsLoading(true);
-    setResults([]);
+    setAllPrescribers([]);
+    setDisplayedPrescribers([]);
     setSearchMessage(null);
 
     const input: PrescriberSearchInput = { 
@@ -84,14 +123,16 @@ export default function FinderPage() {
     setIsLoading(false);
 
     if (response.results.length > 0) {
-      setResults(response.results);
-      setSearchMessage(response.message || `Found ${response.results.length} prescriber(s).`);
+      setAllPrescribers(response.results); // This will trigger the useEffect
+      // Initial message will be set by useEffect based on raw results and filter
     } else {
-      setResults([]);
-      setSearchMessage(response.message || 'No prescribers found matching your criteria.');
+      setAllPrescribers([]);
+      setDisplayedPrescribers([]);
+      const noResultsMessage = response.message || 'No prescribers found matching your criteria.';
+      setSearchMessage(noResultsMessage);
       toast({
         title: 'No Results',
-        description: response.message || 'No prescribers found. Try different search terms or a larger radius.',
+        description: noResultsMessage,
         variant: 'default',
       });
     }
@@ -129,8 +170,8 @@ export default function FinderPage() {
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2 md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+              <div className="space-y-2">
                 <Label htmlFor="zipcode" className="flex items-center text-sm font-medium">
                   <MapPin className="h-4 w-4 mr-2 text-primary" />
                   Center Zipcode (5-digits)
@@ -169,6 +210,25 @@ export default function FinderPage() {
                 </Select>
               </div>
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="confidenceFilter" className="flex items-center text-sm font-medium">
+                  <Filter className="h-4 w-4 mr-2 text-primary" />
+                  Filter by Confidence Score
+                </Label>
+                <Select
+                  value={confidenceFilter}
+                  onValueChange={setConfidenceFilter}
+                >
+                  <SelectTrigger id="confidenceFilter" className="w-full text-base md:text-sm">
+                    <SelectValue placeholder="Filter by confidence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {confidenceFilterOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
             <Button type="submit" disabled={isLoading} className="w-full text-lg py-6">
               {isLoading ? (
@@ -181,7 +241,7 @@ export default function FinderPage() {
           </form>
 
           {searchMessage && !isLoading && (
-            <div className={`p-4 rounded-md text-sm flex items-start ${results.length > 0 ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+            <div className={`p-4 rounded-md text-sm flex items-start ${displayedPrescribers.length > 0 || (allPrescribers.length > 0 && confidenceFilter === 'any') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
               <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
               <p className="flex-grow">{searchMessage}</p>
             </div>
@@ -194,10 +254,10 @@ export default function FinderPage() {
             </div>
           )}
 
-          {results.length > 0 && !isLoading && (
-            <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-secondary/30">
+          {displayedPrescribers.length > 0 && !isLoading && (
+            <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner">
               <div className="space-y-3 p-3">
-                {results.map((prescriber, index) => (
+                {displayedPrescribers.map((prescriber, index) => (
                   <Card key={index} className="shadow-md hover:shadow-lg transition-shadow bg-card">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center justify-between">
@@ -236,9 +296,10 @@ export default function FinderPage() {
           )}
         </CardContent>
         <CardFooter className="text-center text-xs text-muted-foreground/80">
-          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available. Data is for informational purposes only.</p>
+          <p>Search powered by Genkit and PostgreSQL. Ensure 'calculate_distance' SQL function and 'npi_addresses_usps' table are available. Results limited (max 50). Data is for informational purposes only.</p>
         </CardFooter>
       </Card>
     </main>
   );
 }
+
