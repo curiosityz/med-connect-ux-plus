@@ -3,16 +3,16 @@
 /**
  * @fileOverview A Genkit flow to search for prescribers based on medication and zipcode.
  *
- * - searchPrescribersFlow - The main flow function.
- * - PrescriberSearchInput - Input schema for the flow.
- * - PrescriberSearchOutput - Output schema for the flow.
+ * - findPrescribers - The main async function to call the flow.
+ * - PrescriberSearchInput - Input type for the flow.
+ * - PrescriberSearchOutput - Output type for the flow.
  */
 
 import { ai } from '@/ai/genkit';
 import { findPrescribersInDB, type PrescriberRecord } from '@/services/databaseService';
 import { z } from 'genkit';
 
-export const PrescriberSearchInputSchema = z.object({
+const PrescriberSearchInputSchema = z.object({
   medicationName: z.string().describe('The name of the medication to search for.'),
   zipcode: z.string().min(5).max(10).describe('The 5-digit or 9-digit ZIP code to search within.'),
 });
@@ -25,17 +25,17 @@ const PrescriberSchema = z.object({
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
 });
 
-export const PrescriberSearchOutputSchema = z.object({
+const PrescriberSearchOutputSchema = z.object({
   results: z.array(PrescriberSchema).describe('A list of prescribers matching the criteria.'),
   message: z.string().optional().describe('An optional message, e.g., if no results are found.'),
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
 
-// This flow doesn't use an LLM prompt directly for generation, 
+// This flow doesn't use an LLM prompt directly for generation,
 // but rather orchestrates the call to the database service.
 // It's defined as a flow for structural consistency within Genkit-powered features.
-export const searchPrescribersFlow = ai.defineFlow(
+const searchPrescribersFlow = ai.defineFlow(
   {
     name: 'searchPrescribersFlow',
     inputSchema: PrescriberSearchInputSchema,
@@ -66,6 +66,7 @@ export const searchPrescribersFlow = ai.defineFlow(
       if (error instanceof Error) {
         errorMessage = error.message;
       }
+      // Ensure the output matches the schema even on error
       return { results: [], message: errorMessage };
     }
   }
@@ -75,4 +76,3 @@ export const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
-
