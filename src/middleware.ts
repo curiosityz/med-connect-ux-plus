@@ -1,5 +1,5 @@
 
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { clerkMiddleware } from '@clerk/nextjs/server';
 
 // Define routes that should be publicly accessible.
 // Clerk will automatically make sub-paths of these public as well (e.g., /sign-in/xyz).
@@ -13,12 +13,8 @@ const publicRoutes = [
   // If you have other public pages add them here.
 ];
 
-const isPublicRoute = createRouteMatcher(publicRoutes);
-
-export default clerkMiddleware((auth, req) => {
-  if (!isPublicRoute(req)) {
-    auth().protect();
-  }
+export default clerkMiddleware({
+  publicRoutes: publicRoutes,
 });
 
 export const config = {
