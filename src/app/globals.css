@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -106,5 +107,67 @@
   mark {
     background-color: hsl(var(--accent) / 0.3); 
     @apply rounded px-1 text-foreground; 
+  }
+}
+
+@media print {
+  body {
+    font-size: 10pt; /* Adjust base font size for print */
+    color: #000 !important; /* Ensure text is black for print */
+    background-color: #fff !important; /* Ensure background is white */
+  }
+  body * {
+    visibility: hidden;
+    box-shadow: none !important;
+    border-color: #ccc !important;
+  }
+  .printable-shortlist-area, .printable-shortlist-area * {
+    visibility: visible;
+  }
+  .printable-shortlist-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px; /* Or use cm/in for print units */
+    background-color: #fff !important;
+  }
+  .printable-shortlist-area .no-print-button {
+    display: none !important;
+  }
+  .printable-shortlist-area .shortlist-item-print {
+    page-break-inside: avoid;
+    border: 1px solid #ccc; /* Light border for each item */
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #fff !important; /* Ensure items have white background */
+  }
+  .printable-shortlist-area .shortlist-item-print h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #000 !important;
+  }
+  .printable-shortlist-area .shortlist-item-print p,
+  .printable-shortlist-area .shortlist-item-print div {
+    font-size: 9pt;
+    margin: 3px 0;
+    color: #333 !important;
+  }
+   .printable-shortlist-area .shortlist-item-print strong {
+    color: #000 !important;
+  }
+  .no-print-section {
+    display: none !important;
+  }
+  /* Ensure confidence score colors are simple for print if needed, or hide them */
+  .printable-shortlist-area .shortlist-item-print .w-2_5.h-2_5.rounded-full { /* Targeting the confidence dot */
+    border: 1px solid #000; /* Make it a black border for print */
+    background-color: #fff !important; /* Remove fill color for print */
+  }
+
+  /* Hide Clerk elements if they appear */
+  #__clerk-component-root, .clerk-component {
+    display: none !important;
   }
 }
