@@ -20,7 +20,7 @@ export interface PrescriberRecord extends QueryResultRow {
   prescriber_address: string;
   prescriber_zipcode: string;
   medication_name_match: string;
-  distance: number; // Distance in miles
+  distance: number;
   phone_number?: string;
   credentials?: string;
   specialization?: string;
@@ -29,12 +29,12 @@ export interface PrescriberRecord extends QueryResultRow {
 
 interface FindPrescribersParams {
   medicationName: string;
-  zipcode: string; // User's input zipcode
-  searchRadius: number; // Radius in miles
+  zipcode: string;
+  searchRadius: number;
 }
 
 export async function findPrescribersInDB({ medicationName, zipcode, searchRadius }: FindPrescribersParams): Promise<PrescriberRecord[]> {
-  if (!medicationName || !zipcode || searchRadius == null || searchRadius <=0) {
+  if (!medicationName || !zipcode || searchRadius == null || searchRadius <= 0) {
     return [];
   }
 
@@ -43,27 +43,27 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     await client.connect();
 
     // 1. Get lat/lon for the input zipcode
-    // Ensure column names here ("latitude", "longitude", "zip_code") EXACTLY match your npi_addresses_usps table definition.
+    // Using unquoted column names as per user's error log.
     const geoInputZipQuery = await client.query(
-      'SELECT "latitude", "longitude" FROM public.npi_addresses_usps WHERE "zip_code" = $1 LIMIT 1',
+      'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = $1 LIMIT 1',
       [zipcode]
     );
 
     if (geoInputZipQuery.rows.length === 0) {
       console.warn(`No coordinates found for input zipcode: ${zipcode} in 'public.npi_addresses_usps'.`);
-      throw new Error(`Could not find latitude/longitude for the input zipcode ${zipcode} in the 'public.npi_addresses_usps' table. Please ensure this zipcode exists, has coordinate data, and the column names in the query match your table definition (e.g., "latitude", "zip_code").`);
+      throw new Error(`Could not find latitude/longitude for the input zipcode ${zipcode} in the 'public.npi_addresses_usps' table. Please ensure this zipcode exists and has coordinate data. The query used was: 'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = ${zipcode} LIMIT 1'. Check that 'latitude', 'longitude', and 'zip_code' columns exist with these exact (case-insensitive) names.`);
     }
     
     const inputLat = geoInputZipQuery.rows[0].latitude;
     const inputLon = geoInputZipQuery.rows[0].longitude;
 
-    if (typeof inputLat !== 'number' || typeof inputLon !== 'number') {
-        console.error(`Invalid coordinates for input zipcode ${zipcode}: lat=${inputLat}, lon=${inputLon}`);
-        throw new Error(`Coordinates for input zipcode ${zipcode} are invalid or missing from 'public.npi_addresses_usps'. Expected numeric values. Please check the data for this zipcode. Retrieved lat: ${inputLat}, lon: ${inputLon}.`);
+    if (typeof inputLat !== 'number' || typeof inputLon !== 'number' || isNaN(inputLat) || isNaN(inputLon)) {
+        console.error(`Invalid or missing coordinates for input zipcode ${zipcode}: lat=${inputLat}, lon=${inputLon}`);
+        throw new Error(`Coordinates for input zipcode ${zipcode} are invalid, not numbers, or missing from 'public.npi_addresses_usps'. Expected numeric values. Retrieved lat: ${inputLat}, lon: ${inputLon}.`);
     }
 
     // 2. Find prescribers within the radius
-    // Ensure column names referenced from prescriber_geo ("latitude", "longitude") EXACTLY match your npi_addresses_usps table definition.
+    // Using unquoted column names for prescriber_geo as well for consistency with the error log.
     const query = `
       WITH PrescriberBase AS (
         SELECT 
@@ -85,8 +85,8 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
           nd.healthcare_provider_taxonomy_1_specialization AS specialization,
           np.drug_name AS medication_name_match,
           np.total_claim_count,
-          prescriber_geo."latitude" AS prescriber_lat,
-          prescriber_geo."longitude" AS prescriber_lon
+          prescriber_geo.latitude AS prescriber_lat,   -- unquoted
+          prescriber_geo.longitude AS prescriber_lon  -- unquoted
         FROM 
           public.npi_prescriptions np
         JOIN 
@@ -94,10 +94,10 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         JOIN 
           public.npi_addresses na ON np.npi = na.npi
         LEFT JOIN
-          public.npi_addresses_usps prescriber_geo ON LEFT(na.provider_business_practice_location_address_postal_code, 5) = prescriber_geo."zip_code"
+          public.npi_addresses_usps prescriber_geo ON LEFT(na.provider_business_practice_location_address_postal_code, 5) = prescriber_geo.zip_code -- unquoted
         WHERE 
           (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1) 
-          AND prescriber_geo."latitude" IS NOT NULL AND prescriber_geo."longitude" IS NOT NULL
+          AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL -- unquoted
       )
       SELECT
         pb.prescriber_name,
@@ -131,13 +131,13 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     const columnMissingMatch = error.message.match(/column "([^"]+)" does not exist|column ([^ ]+) does not exist/i);
     if (columnMissingMatch) {
         const missingColumn = columnMissingMatch[1] || columnMissingMatch[2];
-        let detailedMessage = `Database query failed: PostgreSQL reports that column "${missingColumn}" does not exist. This means the query tried to access a column that PostgreSQL could not find under that exact name.\n\n`;
+        let detailedMessage = `Database query failed: PostgreSQL reports that column "${missingColumn}" does not exist. This means the query tried to access a column that PostgreSQL could not find under that name (PostgreSQL folds unquoted names to lowercase, so it's looking for a lowercase "${missingColumn}").\n\n`;
         detailedMessage += `TROUBLESHOOTING STEPS:\n`;
         detailedMessage += `1. VERIFY COLUMN NAME AND CASING: Connect to your PostgreSQL database using 'psql' or another DB tool. Run the command: \\d public.npi_addresses_usps\n`;
-        detailedMessage += `   Carefully check the "Column" list. Is "${missingColumn}" listed EXACTLY as shown (e.g., "latitude" vs "Latitude")? PostgreSQL identifiers are case-sensitive if created with double quotes. If unquoted, they are stored as lowercase.\n`;
-        detailedMessage += `   The query currently uses "${missingColumn.toLowerCase()}" (e.g., "latitude"). If your column is cased differently (e.g., "Latitude"), the query in 'src/services/databaseService.ts' must be updated to match that exact case (e.g., SELECT "Latitude"...).\n\n`;
-        detailedMessage += `2. CHECK .env FILE: Ensure your environment variables (PG_HOST, PG_USER, PG_DATABASE, PG_PORT, NEXT_DB_PASSWORD, PG_SSLMODE) in the .env file are 100% correct and point to the intended database server and database name where 'public.npi_addresses_usps' table with the correct columns exists. An accidental change here could connect the app to a different DB.\n\n`;
+        detailedMessage += `   Carefully check the "Column" list. Is "${missingColumn}" listed EXACTLY as lowercase? If it's cased differently (e.g., "Latitude"), the column was likely created WITH double quotes and that exact casing. The current query uses unquoted names like '${missingColumn.toLowerCase()}'. If your column is cased differently and was created WITH quotes, the query needs to use double quotes around the exact cased name (e.g., SELECT "Latitude"...).\n\n`;
+        detailedMessage += `2. CHECK .env FILE: Ensure your environment variables (PG_HOST, PG_USER, PG_DATABASE, PG_PORT, NEXT_DB_PASSWORD, PG_SSLMODE) in the .env file are 100% correct and point to the intended database server and database name where 'public.npi_addresses_usps' table with the correct columns exists.\n\n`;
         detailedMessage += `3. DATABASE USER PERMISSIONS: Confirm that the database user specified by PG_USER ('${dbConfig.user || 'UNKNOWN_USER'}') has SELECT permissions on the 'public.npi_addresses_usps' table AND all its columns, including "${missingColumn}".\n\n`;
+        detailedMessage += `4. TARGET TABLE: The problematic column "${missingColumn}" is being looked for in 'public.npi_addresses_usps'. Double-check this is the correct table and schema.\n\n`;
         detailedMessage += `Original PostgreSQL error: ${error.message}`;
         throw new Error(detailedMessage);
     }
