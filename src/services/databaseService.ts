@@ -43,7 +43,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     await client.connect();
 
     // 1. Get lat/lon for the input zipcode
-    // Using unquoted column names as per user's error log.
+    // Using unquoted column names as per user's error log and schema.
     const geoInputZipQuery = await client.query(
       'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = $1 LIMIT 1',
       [zipcode]
@@ -63,7 +63,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     }
 
     // 2. Find prescribers within the radius
-    // Using unquoted column names for prescriber_geo as well for consistency with the error log.
+    // Using unquoted column names for prescriber_geo as well.
     const query = `
       WITH PrescriberBase AS (
         SELECT 
@@ -131,13 +131,12 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     const columnMissingMatch = error.message.match(/column "([^"]+)" does not exist|column ([^ ]+) does not exist/i);
     if (columnMissingMatch) {
         const missingColumn = columnMissingMatch[1] || columnMissingMatch[2];
-        let detailedMessage = `Database query failed: PostgreSQL reports that column "${missingColumn}" does not exist. This means the query tried to access a column that PostgreSQL could not find under that name (PostgreSQL folds unquoted names to lowercase, so it's looking for a lowercase "${missingColumn}").\n\n`;
-        detailedMessage += `TROUBLESHOOTING STEPS:\n`;
-        detailedMessage += `1. VERIFY COLUMN NAME AND CASING: Connect to your PostgreSQL database using 'psql' or another DB tool. Run the command: \\d public.npi_addresses_usps\n`;
-        detailedMessage += `   Carefully check the "Column" list. Is "${missingColumn}" listed EXACTLY as lowercase? If it's cased differently (e.g., "Latitude"), the column was likely created WITH double quotes and that exact casing. The current query uses unquoted names like '${missingColumn.toLowerCase()}'. If your column is cased differently and was created WITH quotes, the query needs to use double quotes around the exact cased name (e.g., SELECT "Latitude"...).\n\n`;
-        detailedMessage += `2. CHECK .env FILE: Ensure your environment variables (PG_HOST, PG_USER, PG_DATABASE, PG_PORT, NEXT_DB_PASSWORD, PG_SSLMODE) in the .env file are 100% correct and point to the intended database server and database name where 'public.npi_addresses_usps' table with the correct columns exists.\n\n`;
-        detailedMessage += `3. DATABASE USER PERMISSIONS: Confirm that the database user specified by PG_USER ('${dbConfig.user || 'UNKNOWN_USER'}') has SELECT permissions on the 'public.npi_addresses_usps' table AND all its columns, including "${missingColumn}".\n\n`;
-        detailedMessage += `4. TARGET TABLE: The problematic column "${missingColumn}" is being looked for in 'public.npi_addresses_usps'. Double-check this is the correct table and schema.\n\n`;
+        let detailedMessage = `Database query failed: PostgreSQL reports that column "${missingColumn}" does not exist IN THE CONTEXT OF THE CURRENT QUERY.\n\n`;
+        detailedMessage += `This usually means one of the following for the table 'public.npi_addresses_usps':\n`;
+        detailedMessage += `1. WRONG DATABASE/SCHEMA: The application (using host: '${dbConfig.host}', database: '${dbConfig.database}', user: '${dbConfig.user}') is NOT connecting to the database you are inspecting. Double and triple-check ALL PG_* environment variables in your .env file(s) (.env, .env.local, etc.) used by Next.js for this environment.\n\n`;
+        detailedMessage += `2. COLUMN NAMING/CASING: You've confirmed the column is lowercase 'latitude'. The query uses unquoted 'latitude', which PostgreSQL folds to lowercase. This should match if the column was created unquoted or quoted as lowercase. If it was created with different casing AND quotes (e.g., "Latitude"), the query would need to match that exact casing with quotes.\n   COMMAND TO VERIFY IN PSQL (connected to the *actual* app database): \\d public.npi_addresses_usps\n   Inspect the output carefully for the exact spelling and casing of '${missingColumn}'.\n\n`;
+        detailedMessage += `3. PERMISSIONS: The database user '${dbConfig.user || 'UNKNOWN (check PG_USER in .env)'}' might LACK SELECT permission on the 'public.npi_addresses_usps' table OR specifically on the '${missingColumn}' column. This can appear as a "column does not exist" error.\n   Grant permissions: GRANT SELECT ON public.npi_addresses_usps TO "${dbConfig.user}"; (and potentially on specific columns if needed).\n\n`;
+        detailedMessage += `4. TYPO IN QUERY (Less likely if previously working): The query itself might have a typo referring to '${missingColumn}' where it's used with 'public.npi_addresses_usps'. Current query references it as unquoted lowercase, which should be correct for an unquoted lowercase column definition.\n\n`;
         detailedMessage += `Original PostgreSQL error: ${error.message}`;
         throw new Error(detailedMessage);
     }
@@ -147,3 +146,61 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
   }
 }
 
+// Example of how to create the calculate_distance function in PostgreSQL:
+/*
+-- Drop the function if it already exists to avoid errors on re-creation
+DROP FUNCTION IF EXISTS public.calculate_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT);
+
+CREATE OR REPLACE FUNCTION public.calculate_distance(
+    lat1 DOUBLE PRECISION,
+    lon1 DOUBLE PRECISION,
+    lat2 DOUBLE PRECISION,
+    lon2 DOUBLE PRECISION,
+    units TEXT DEFAULT 'km' -- Default unit is kilometers
+)
+RETURNS DOUBLE PRECISION AS $$
+DECLARE
+    R DOUBLE PRECISION;              -- Radius of the Earth
+    phi1 DOUBLE PRECISION;           -- Latitude 1 in radians
+    phi2 DOUBLE PRECISION;           -- Latitude 2 in radians
+    delta_phi DOUBLE PRECISION;      -- Difference in latitude
+    delta_lambda DOUBLE PRECISION;   -- Difference in longitude
+    a DOUBLE PRECISION;
+    c DOUBLE PRECISION;
+    distance DOUBLE PRECISION;
+BEGIN
+    -- Select Earth's radius based on the desired units
+    IF lower(units) = 'km' THEN
+        R := 6371.0; -- Radius in kilometers
+    ELSIF lower(units) = 'miles' THEN
+        R := 3958.8; -- Radius in miles
+    ELSE
+        RAISE EXCEPTION 'Invalid unit: %. Supported units are "km" or "miles".', units;
+    END IF;
+
+    phi1 := radians(lat1);
+    phi2 := radians(lat2);
+    delta_phi := radians(lat2 - lat1);
+    delta_lambda := radians(lon2 - lon1);
+
+    a := sin(delta_phi / 2.0) * sin(delta_phi / 2.0) +
+         cos(phi1) * cos(phi2) *
+         sin(delta_lambda / 2.0) * sin(delta_lambda / 2.0);
+
+    IF a < 0.0 THEN
+        a := 0.0;
+    ELSIF a > 1.0 THEN
+        a := 1.0;
+    END IF;
+    
+    c := 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
+    distance := R * c;
+    RETURN distance;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+COMMENT ON FUNCTION public.calculate_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) IS
+'Calculates the great-circle distance between two points (specified in decimal degrees) on Earth using the Haversine formula.
+Parameters: lat1, lon1, lat2, lon2, units (''km'' for kilometers, ''miles'' for miles).
+Returns distance in the specified units.';
+*/
