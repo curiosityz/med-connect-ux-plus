@@ -44,7 +44,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
 
     // 1. Get lat/lon for the input zipcode
     const geoInputZipQuery = await client.query(
-      'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = $1 LIMIT 1',
+      'SELECT "latitude", "longitude" FROM public.npi_addresses_usps WHERE "zip_code" = $1 LIMIT 1',
       [zipcode]
     );
 
@@ -52,8 +52,15 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
       console.warn(`No coordinates found for input zipcode: ${zipcode}`);
       return [];
     }
+    // pg driver returns column names as they are in the result set.
+    // If queried as "latitude", it will be row.latitude.
     const inputLat = geoInputZipQuery.rows[0].latitude;
     const inputLon = geoInputZipQuery.rows[0].longitude;
+
+    if (typeof inputLat !== 'number' || typeof inputLon !== 'number') {
+        console.error(`Invalid coordinates for input zipcode ${zipcode}: lat=${inputLat}, lon=${inputLon}`);
+        throw new Error(`Coordinates for input zipcode ${zipcode} are invalid or missing. Please check the 'npi_addresses_usps' table.`);
+    }
 
     // 2. Find prescribers within the radius
     const query = `
@@ -77,8 +84,8 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
           nd.healthcare_provider_taxonomy_1_specialization AS specialization,
           np.drug_name AS medication_name_match,
           np.total_claim_count,
-          prescriber_geo.latitude AS prescriber_lat,
-          prescriber_geo.longitude AS prescriber_lon
+          prescriber_geo."latitude" AS prescriber_lat,  -- Use quoted "latitude"
+          prescriber_geo."longitude" AS prescriber_lon -- Use quoted "longitude"
         FROM 
           public.npi_prescriptions np
         JOIN 
@@ -86,10 +93,10 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         JOIN 
           public.npi_addresses na ON np.npi = na.npi
         LEFT JOIN
-          public.npi_addresses_usps prescriber_geo ON LEFT(na.provider_business_practice_location_address_postal_code, 5) = prescriber_geo.zip_code
+          public.npi_addresses_usps prescriber_geo ON LEFT(na.provider_business_practice_location_address_postal_code, 5) = prescriber_geo."zip_code" -- Use quoted "zip_code"
         WHERE 
           (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1) 
-          AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL
+          AND prescriber_geo."latitude" IS NOT NULL AND prescriber_geo."longitude" IS NOT NULL -- Use quoted "latitude" and "longitude"
       )
       SELECT
         pb.prescriber_name,
@@ -118,8 +125,13 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
      if (error.message && error.message.includes("Invalid unit")) {
         throw new Error(`Database query failed: The 'calculate_distance' SQL function was called with an invalid unit. Ensure it supports 'miles'. Details: ${error.message}`);
     }
+    // Added more specific check for "latitude" or "longitude" column not existing
+    if (error.message && (error.message.includes('column "latitude" does not exist') || error.message.includes('column "longitude" does not exist') || error.message.includes('column latitude does not exist') || error.message.includes('column longitude does not exist'))) {
+        throw new Error(`Database query failed: A required geo-coordinate column (latitude or longitude) was not found in 'npi_addresses_usps' or was not accessible. Please verify the table schema and permissions. Original error: ${error.message}`);
+    }
     throw new Error(`Database query failed: ${error.message}`);
   } finally {
     await client.end();
   }
 }
+
