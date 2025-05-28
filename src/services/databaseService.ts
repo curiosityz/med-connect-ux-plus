@@ -23,15 +23,13 @@ export interface PrescriberRecord extends QueryResultRow {
   practice_city: string | null;
   practice_state: string | null;
   practice_zip: string | null;
-  drug: string | null; // Matched medication name
-  claims: number | null; // Corresponds to total_claim_count for confidence
+  drug: string | null;
+  claims: number | null;
   distance_miles: number | null;
-  taxonomy_class: string | null; // New field from the refined SQL function
-  // The SQL function also returns credentials and specialization implicitly if they are part of the underlying tables it queries
-  // Ensure these are aliased correctly in the SQL function if needed by the flow
-  provider_credential_text?: string | null; // Assuming SQL function might pass this through from npi_details
-  healthcare_provider_taxonomy_1_specialization?: string | null; // Assuming SQL function might pass this through
-  provider_business_practice_location_address_telephone_number?: string | null; // Assuming SQL function might pass this through
+  taxonomy_class: string | null;
+  provider_credential_text: string | null;
+  healthcare_provider_taxonomy_1_specialization: string | null;
+  provider_business_practice_location_address_telephone_number: string | null;
 }
 
 interface FindPrescribersParams {
@@ -53,28 +51,87 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
   try {
     await client.connect();
 
+    // 1. Get coordinates for the input zipcode
+    const zipCoordQuery = 'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = $1 LIMIT 1';
+    const zipCoordRes = await client.query(zipCoordQuery, [zipcode]);
+
+    if (zipCoordRes.rows.length === 0) {
+      console.warn(`Coordinates not found for input zipcode: ${zipcode}`);
+      throw new Error(`Could not find location data for zipcode ${zipcode}. Please ensure it's a valid 5-digit US zipcode present in the npi_addresses_usps table.`);
+    }
+    const inputZipLat = zipCoordRes.rows[0].latitude;
+    const inputZipLon = zipCoordRes.rows[0].longitude;
+
+    if (typeof inputZipLat !== 'number' || typeof inputZipLon !== 'number') {
+        console.error(`Invalid coordinate types for input zipcode ${zipcode}: lat ${typeof inputZipLat}, lon ${typeof inputZipLon}`);
+        throw new Error(`Location data for zipcode ${zipcode} is invalid. Please check the npi_addresses_usps table.`);
+    }
+
+
+    // 2. Main query to find prescribers
     const query = `
-      SELECT * 
-      FROM public.find_prescribers_near_zip_refined($1, $2, $3, $4, $5, $6);
+      SELECT
+        nd.npi,
+        nd.provider_first_name,
+        nd.provider_last_name_legal_name,
+        na.provider_first_line_business_practice_location_address AS practice_address1,
+        na.provider_second_line_business_practice_location_address AS practice_address2,
+        na.provider_business_practice_location_address_city_name AS practice_city,
+        na.provider_business_practice_location_address_state_name AS practice_state,
+        SUBSTRING(na.provider_business_practice_location_address_postal_code FROM 1 FOR 5) AS practice_zip, -- Ensure 5-digit zip for consistency
+        COALESCE(np.drug_name, np.generic_name) AS drug,
+        np.total_claim_count AS claims,
+        nd.provider_credential_text,
+        nd.healthcare_provider_taxonomy_1_specialization,
+        nd.healthcare_provider_taxonomy_1_classification AS taxonomy_class,
+        na.provider_business_practice_location_address_telephone_number,
+        public.calculate_distance(
+            $2, $3, -- input_zip_lat, input_zip_lon
+            prescriber_geo.latitude, 
+            prescriber_geo.longitude,
+            'miles'
+        ) AS distance_miles
+      FROM
+        public.npi_prescriptions np
+      JOIN
+        public.npi_details nd ON np.npi = nd.npi
+      JOIN
+        public.npi_addresses na ON np.npi = na.npi
+      LEFT JOIN 
+        public.npi_addresses_usps prescriber_geo ON SUBSTRING(na.provider_business_practice_location_address_postal_code FROM 1 FOR 5) = prescriber_geo.zip_code -- Join on 5-digit zip
+      WHERE
+        (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1)
+        AND prescriber_geo.latitude IS NOT NULL -- Ensure prescriber has coordinates
+        AND prescriber_geo.longitude IS NOT NULL
+      HAVING
+        public.calculate_distance($2, $3, prescriber_geo.latitude, prescriber_geo.longitude, 'miles') <= $4
+      ORDER BY
+        distance_miles ASC
+      LIMIT 200; -- Add a reasonable limit
     `;
-    // Parameters: p_zip_code, p_drug_name, p_radius_miles, p_min_claims, p_taxonomy_class, p_sort_by
+    
     const params = [
-        zipcode,            // $1: p_zip_code
-        medicationName,     // $2: p_drug_name
-        searchRadius,       // $3: p_radius_miles
-        0,                  // $4: p_min_claims (default)
-        null,               // $5: p_taxonomy_class (default)
-        'distance'          // $6: p_sort_by (default)
+        `%${medicationName}%`, // $1 for ILIKE
+        inputZipLat,           // $2 for calculate_distance
+        inputZipLon,           // $3 for calculate_distance
+        searchRadius           // $4 for HAVING clause
     ];
     
     const res = await client.query<PrescriberRecord>(query, params);
     return res.rows;
 
   } catch (error: any) {
-    console.error("Error calling find_prescribers_near_zip_refined SQL function:", error);
-    let userMessage = `Database query failed when calling 'find_prescribers_near_zip_refined'. Please check database connectivity, function definition, and permissions.`;
+    console.error("Error in findPrescribersInDB:", error);
+    let userMessage = `Database query failed. Please check database connectivity, table structures (npi_prescriptions, npi_details, npi_addresses, npi_addresses_usps), and the 'public.calculate_distance' SQL function.`;
     if (error.message && typeof error.message === 'string') {
       userMessage += ` Original error: ${error.message}`;
+    }
+     // Check for specific "column does not exist" errors which are common
+    if (error.message && typeof error.message === 'string' && error.message.includes("column") && error.message.includes("does not exist")) {
+        userMessage += `\n\nSpecific 'column does not exist' error detected. Please verify:
+1.  The EXACT column name and casing in your PostgreSQL table using psql (e.g., \\d public.npi_addresses_usps). Unquoted names are stored as lowercase.
+2.  Your .env file's PG_HOST, PG_DATABASE, PG_USER, PG_PORT, NEXT_DB_PASSWORD are correct and point to the database you are inspecting.
+3.  The database user ('${dbConfig.user}') has SELECT permissions on all involved tables and columns.`;
     }
     throw new Error(userMessage);
   } finally {

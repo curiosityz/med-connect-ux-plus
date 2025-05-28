@@ -31,12 +31,8 @@ const PrescriberSchema = z.object({
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count (0-100)."),
   distance: z.number().optional().describe("Approximate distance in miles from the searched zipcode center."),
 });
-
-const PrescriberSearchOutputSchema = z.object({
-  results: z.array(PrescriberSchema).describe("The list of prescribers found."),
-  message: z.string().optional().describe("A message describing the search outcome (e.g., number of results, errors).")
-});
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
+
 
 const normalizeCredentials = (credentials?: string | null): string | undefined => {
   if (!credentials) return undefined;
@@ -50,9 +46,12 @@ const searchPrescribersFlow = ai.defineFlow(
   {
     name: 'searchPrescribersFlow',
     inputSchema: PrescriberSearchInputSchema,
-    outputSchema: PrescriberSearchOutputSchema,
+    outputSchema: z.object({ // Inline schema definition for flow output
+        results: z.array(PrescriberSchema),
+        message: z.string().optional(),
+    }),
   },
-  async (input: PrescriberSearchInput): Promise<PrescriberSearchOutput> => {
+  async (input: PrescriberSearchInput): Promise<{ results: z.infer<typeof PrescriberSchema>[], message?: string }> => {
     try {
       const prescribersFromDB: PrescriberRecord[] = await findPrescribersInDB({
         medicationName: input.medicationName,
@@ -76,8 +75,6 @@ const searchPrescribersFlow = ai.defineFlow(
         
         return {
           prescriberName: prescriberName || "N/A",
-          // Assuming your SQL function `find_prescribers_near_zip_refined` returns these or they are derived
-          // If they are not directly returned, you might need to adjust your SQL function or this mapping
           credentials: normalizeCredentials(p.provider_credential_text), 
           specialization: p.healthcare_provider_taxonomy_1_specialization || undefined,
           taxonomyClass: p.taxonomy_class || undefined,
@@ -85,7 +82,7 @@ const searchPrescribersFlow = ai.defineFlow(
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.provider_business_practice_location_address_telephone_number || undefined,
           medicationMatch: p.drug || "N/A", 
-          confidenceScore: Math.min( (p.claims || 0) * 5, 100), // Using 'claims' field from new function
+          confidenceScore: Math.min( (p.claims || 0) * 5, 100), 
           distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
@@ -95,7 +92,7 @@ const searchPrescribersFlow = ai.defineFlow(
       if (formattedResults.length === 0) {
         return { 
             results: [], 
-            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database function 'find_prescribers_near_zip_refined' is working correctly and the underlying tables (npi_prescriptions, npi_addresses, npi_details, npi_addresses_usps) contain relevant data.`
+            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database function 'public.calculate_distance' is working correctly and the underlying tables (npi_prescriptions, npi_addresses, npi_details, npi_addresses_usps) contain relevant data.`
         };
       }
 
@@ -111,6 +108,7 @@ const searchPrescribersFlow = ai.defineFlow(
   }
 );
 
-export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
+// Explicitly type the output of the wrapper to match the flow's outputSchema
+export async function findPrescribers(input: PrescriberSearchInput): Promise<{ results: z.infer<typeof PrescriberSchema>[], message?: string }> {
   return searchPrescribersFlow(input);
 }
