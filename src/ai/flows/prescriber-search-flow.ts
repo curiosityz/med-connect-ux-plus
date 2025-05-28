@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import { findPrescribersInDB, type PrescriberRecord } from '@/services/databaseService';
-import { z } from 'genkit';
+import { z } from 'genkit'; // Changed from 'zod' to 'genkit'
 
 const PrescriberSearchInputSchema = z.object({
   medicationName: z.string().describe('The name of the medication to search for.'),
@@ -28,6 +28,11 @@ const PrescriberSchema = z.object({
   phoneNumber: z.string().optional().describe("The prescriber's phone number."),
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count (0-100)."),
+});
+
+const PrescriberSearchOutputSchema = z.object({
+  results: z.array(PrescriberSchema).describe("The list of prescribers found."),
+  message: z.string().optional().describe("A message describing the search outcome (e.g., number of results, errors).")
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
@@ -74,13 +79,13 @@ const searchPrescribersFlow = ai.defineFlow(
           address: fullAddress || "N/A",
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.phone_number || undefined,
-          medicationMatch: p.drug_name || "N/A", // Was p.drug
-          confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), // Was p.claims
+          medicationMatch: p.drug_name || "N/A",
+          confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), 
         };
       });
 
       let searchDescription = `in zipcode ${input.zipcode}`;
-      if (input.searchAreaType === 'prefix3') {
+      if (input.searchAreaType === 'prefix3' && input.zipcode.length >=3) {
         searchDescription = `in the area starting with zipcode prefix ${input.zipcode.substring(0,3)}`;
       }
       
@@ -96,9 +101,14 @@ const searchPrescribersFlow = ai.defineFlow(
       console.error("Error in searchPrescribersFlow:", error);
       let errorMessage = "An unexpected error occurred while searching for prescribers.";
       if (error instanceof Error) {
-        errorMessage = error.message;
+        // Check if the error message is one of the detailed user-facing messages from databaseService
+        if (error.message.startsWith("Database query failed") || error.message.startsWith("No coordinates found")) {
+          errorMessage = error.message;
+        } else {
+           errorMessage = `Flow Error: ${error.message}`; // Generic flow error
+        }
       }
-      return { results: [], message: `Flow Error: ${errorMessage}` };
+      return { results: [], message: errorMessage };
     }
   }
 );
