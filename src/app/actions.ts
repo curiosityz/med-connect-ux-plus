@@ -4,16 +4,13 @@
 import { findPrescribers, type PrescriberSearchInput, type PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
 export async function findPrescribersAction(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
-  // Basic validation, more complex validation can be in the Zod schema of the flow
-  if (!input.medicationName || !input.zipcode || !input.searchRadius) {
-    return { results: [], message: "Medication name, zipcode, and search radius are required." };
+  if (!input.medicationName || !input.zipcode || !input.searchAreaType) {
+    return { results: [], message: "Medication name, zipcode, and search area type are required." };
   }
   if (input.zipcode.length !== 5 || !/^\d{5}$/.test(input.zipcode)) {
-     return { results: [], message: "Zipcode must be exactly 5 digits for radius search." };
+     return { results: [], message: "Zipcode must be exactly 5 digits." };
   }
-  if (input.searchRadius <= 0) {
-    return { results: [], message: "Search radius must be a positive number." };
-  }
+  // searchAreaType is validated by its enum type in the Zod schema.
 
   try {
     const result = await findPrescribers(input);

@@ -3,7 +3,6 @@
 
 import { Client, type QueryResultRow } from 'pg';
 
-// Ensure these environment variables are set in your .env or .env.local file
 const dbConfig = {
   host: process.env.PG_HOST,
   user: process.env.PG_USER,
@@ -24,20 +23,21 @@ export interface PrescriberRecord extends QueryResultRow {
   practice_city: string | null;
   practice_state: string | null;
   practice_zip: string | null;
-  drug: string | null;
-  claims: number | null;
-  distance_miles: number | null;
-  // Note: phone_number, credentials, specialization are not returned by the SQL function
+  phone_number: string | null;
+  credentials: string | null;
+  specialization: string | null;
+  drug_name: string | null; // Renamed from 'drug' to match direct selection
+  total_claim_count: number | null; // Renamed from 'claims'
 }
 
 interface FindPrescribersParams {
   medicationName: string;
   zipcode: string;
-  searchRadius: number;
+  searchAreaType: 'exact' | 'prefix3';
 }
 
-export async function findPrescribersInDB({ medicationName, zipcode, searchRadius }: FindPrescribersParams): Promise<PrescriberRecord[]> {
-  if (!medicationName || !zipcode || searchRadius == null || searchRadius <= 0) {
+export async function findPrescribersInDB({ medicationName, zipcode, searchAreaType }: FindPrescribersParams): Promise<PrescriberRecord[]> {
+  if (!medicationName || !zipcode || !searchAreaType) {
     return [];
   }
 
@@ -45,30 +45,61 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
   try {
     await client.connect();
 
-    const query = 'SELECT * FROM public.find_prescribers_near_zip($1, $2, $3)';
-    const params = [zipcode, `%${medicationName}%`, searchRadius];
+    let params: any[] = [];
+    let paramIndex = 1;
+    let whereClauses: string[] = [];
+
+    whereClauses.push(`(np.drug_name ILIKE $${paramIndex} OR np.generic_name ILIKE $${paramIndex++})`);
+    params.push(`%${medicationName}%`);
+
+    if (searchAreaType === 'exact') {
+      whereClauses.push(`na.provider_business_practice_location_address_postal_code = $${paramIndex++}`);
+      params.push(zipcode);
+    } else if (searchAreaType === 'prefix3') {
+      // Expects a 5-digit zipcode from which to derive the prefix
+      if (zipcode.length >= 3) {
+        whereClauses.push(`LEFT(na.provider_business_practice_location_address_postal_code, 3) = $${paramIndex++}`);
+        params.push(zipcode.substring(0, 3));
+      } else {
+        // Fallback for very short zipcodes, though UI should prevent this.
+        whereClauses.push(`na.provider_business_practice_location_address_postal_code = $${paramIndex++}`);
+        params.push(zipcode);
+      }
+    }
+
+    const query = `
+      SELECT
+        nd.npi,
+        nd.provider_first_name,
+        nd.provider_last_name_legal_name,
+        na.provider_first_line_business_practice_location_address AS practice_address1,
+        na.provider_second_line_business_practice_location_address AS practice_address2,
+        na.provider_business_practice_location_address_city_name AS practice_city,
+        na.provider_business_practice_location_address_state_name AS practice_state,
+        na.provider_business_practice_location_address_postal_code AS practice_zip,
+        na.provider_business_practice_location_address_telephone_number AS phone_number,
+        nd.provider_credential_text AS credentials,
+        nd.healthcare_provider_taxonomy_1_specialization AS specialization,
+        np.drug_name,
+        np.total_claim_count
+      FROM public.npi_prescriptions np
+      JOIN public.npi_addresses na ON np.npi = na.npi
+      JOIN public.npi_details nd ON np.npi = nd.npi
+      WHERE ${whereClauses.join(' AND ')}
+      ORDER BY np.total_claim_count DESC NULLS LAST, nd.provider_last_name_legal_name, nd.provider_first_name
+      LIMIT 50;
+    `;
     
     const res = await client.query<PrescriberRecord>(query, params);
-    
-    if (res.rows.length === 0) {
-      // Check if the SQL function itself might have returned an error or specific condition as empty rows
-      // For now, we just return the empty array. More specific error handling could be added if the SQL function provides it.
-      console.log(`No prescribers found by SQL function find_prescribers_near_zip for medication "${medicationName}", zip "${zipcode}", radius ${searchRadius}.`);
-    }
     return res.rows;
 
   } catch (error: any) {
-    console.error('Error calling SQL function find_prescribers_near_zip:', error);
-
-    if (error.message && error.message.includes("function public.find_prescribers_near_zip") && error.message.includes("does not exist")) {
-        throw new Error(`Database query failed: The SQL function 'public.find_prescribers_near_zip' with matching argument types (text, text, numeric) is not defined in your database, or it is not accessible. Please ensure it has been created and the application's database user has permission to execute it. Details: ${error.message}`);
+    console.error('Error querying database for prescribers:', error);
+    let userMessage = "An unexpected error occurred while searching for prescribers. Please check database connectivity and table structures (npi_prescriptions, npi_addresses, npi_details).";
+    if (error.message) {
+      userMessage += ` Original error: ${error.message}`;
     }
-     if (error.message && error.message.includes("Invalid unit")) {
-        // This error might come from calculate_distance if it's called inside your SQL function
-        throw new Error(`Database query failed: The 'calculate_distance' SQL function (likely called within 'find_prescribers_near_zip') was called with an invalid unit. Ensure it supports 'miles'. Details: ${error.message}`);
-    }
-    // A more generic error for other issues
-    throw new Error(`Database query failed when calling 'find_prescribers_near_zip'. Please check database connectivity, function definition, and permissions. Original error: ${error.message}`);
+    throw new Error(userMessage);
   } finally {
     await client.end();
   }
