@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, AreaChart } from 'lucide-react'; // Added AreaChart for search area
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, AreaChart } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -22,7 +22,6 @@ interface PrescriberResult {
   phoneNumber?: string;
   medicationMatch: string;
   confidenceScore: number;
-  // distance removed
 }
 
 const searchAreaTypes = [
@@ -80,6 +79,7 @@ export default function FinderPage() {
     return 'bg-red-500';
   };
 
+  // Effect for loading phrases
   useEffect(() => {
     let phraseInterval: NodeJS.Timeout;
     if (isLoading) {
@@ -97,6 +97,7 @@ export default function FinderPage() {
     };
   }, [isLoading]);
 
+  // Effect for filtering displayed prescribers
   useEffect(() => {
     let filtered = allPrescribers;
     if (confidenceFilter !== 'any') {
@@ -108,28 +109,51 @@ export default function FinderPage() {
       });
     }
     setDisplayedPrescribers(filtered);
+  }, [allPrescribers, confidenceFilter]);
 
-    if (allPrescribers.length > 0 && !isLoading) {
-        const originalNoResultsMessage = searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:")) ? searchMessage : null;
-        
-        if (originalNoResultsMessage) {
-            // Keep the original error or "no results" message from the flow
-        } else {
-            let searchAreaDescription = `in zipcode ${zipcode}`;
-            if (searchAreaType === 'prefix3' && zipcode.length >=3) {
-                searchAreaDescription = `in the area starting with zipcode prefix ${zipcode.substring(0,3)}`;
-            }
-            const baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" ${searchAreaDescription}.`;
-            if (confidenceFilter !== 'any') {
-                setSearchMessage(`${baseMessage} Displaying ${filtered.length} after filtering by confidence.`);
-            } else {
-                setSearchMessage(baseMessage);
-            }
-        }
-    } else if (!isLoading && allPrescribers.length === 0 && searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:"))) {
-      // Keep the original "no results" or error message
+  // Effect for updating the search message based on results and filters
+  useEffect(() => {
+    if (isLoading) {
+      // Message is handled by loading phrases or is null from handleSearch start
+      return;
     }
-  }, [allPrescribers, confidenceFilter, medicationName, zipcode, searchAreaType, isLoading, searchMessage]);
+
+    // At this point, isLoading is false. API call has finished.
+    // The initial message from response.message is ALREADY in the searchMessage state
+    // because it was set directly in handleSearch.
+
+    if (allPrescribers.length > 0) {
+      // API returned results
+      let searchAreaDescription = `in zipcode ${zipcode}`;
+      if (searchAreaType === 'prefix3' && zipcode.length >= 3) {
+        searchAreaDescription = `in the area starting with zipcode prefix ${zipcode.substring(0, 3)}`;
+      }
+      const baseMessageFromCurrentData = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" ${searchAreaDescription}.`;
+
+      if (searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:"))) {
+        // If the API message (already in searchMessage state) was an error or "no results",
+        // we should stick with that, even if allPrescribers somehow got populated (shouldn't happen).
+        // This case is mostly defensive. The toast in handleSearch already handled this.
+      } else if (confidenceFilter !== 'any') {
+        if (allPrescribers.length === displayedPrescribers.length) {
+          setSearchMessage(`${baseMessageFromCurrentData} All match current confidence filter.`);
+        } else {
+          setSearchMessage(`${baseMessageFromCurrentData} Displaying ${displayedPrescribers.length} after filtering by confidence.`);
+        }
+      } else {
+        // No confidence filter, or API message was not an error/no results.
+        setSearchMessage(baseMessageFromCurrentData);
+      }
+    } else {
+      // allPrescribers is empty.
+      // `searchMessage` state should already hold the API's message (e.g., "No prescribers found", error, or null).
+      // We don't need to set it again here, as handleSearch took care of it.
+      // If searchMessage is null at this point (e.g. API returned [] results and null message) and a search was made,
+      // the UI will show "No prescribers to display" or similar based on displayedPrescribers.length.
+    }
+  // Critical: `searchMessage` is NOT a dependency here because this effect SETS it.
+  // Dependencies are the values that, when changed, should lead to recalculating the message.
+  }, [allPrescribers, displayedPrescribers, confidenceFilter, medicationName, zipcode, searchAreaType, isLoading]);
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -161,24 +185,24 @@ export default function FinderPage() {
       zipcode,
       searchAreaType
     };
+    
     const response: PrescriberSearchOutput = await findPrescribersAction(input);
 
-    setIsLoading(false);
-    setSearchMessage(response.message || null); // Set message from API response
+    setIsLoading(false); // Set loading to false AFTER the API call.
+    setSearchMessage(response.message || null); // Set message from API response. This is the source of truth.
 
-    if (response.results.length > 0) {
-      setAllPrescribers(response.results);
+    if (response.results && response.results.length > 0) {
+      setAllPrescribers(response.results); // This will trigger the filtering useEffect.
     } else {
-      setAllPrescribers([]); // Ensure it's empty
-      setDisplayedPrescribers([]); // Ensure it's empty
-      // Toast is shown based on the message from the flow
+      setAllPrescribers([]); 
+      setDisplayedPrescribers([]);
        if (response.message && (response.message.startsWith("No prescribers found") || response.message.startsWith("Flow Error:"))) {
          toast({
             title: response.message.startsWith("Flow Error:") ? 'Search Error' : 'No Results',
             description: response.message,
             variant: response.message.startsWith("Flow Error:") ? 'destructive' : 'default',
          });
-       } else if (!response.message) { // Fallback if message is empty
+       } else if (!response.message) { 
          toast({
             title: 'No Results',
             description: 'No prescribers found matching your criteria.',
@@ -308,7 +332,14 @@ export default function FinderPage() {
             </Button>
           </form>
 
-          {searchMessage && !isLoading && (
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-lg text-muted-foreground">{currentLoadingPhrase}</p>
+            </div>
+          )}
+          
+          {!isLoading && searchMessage && (
             <div className={`p-4 rounded-md text-sm flex items-start ${
                 searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:")
                 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
@@ -319,12 +350,13 @@ export default function FinderPage() {
             </div>
           )}
           
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-8 space-y-3">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-lg text-muted-foreground">{currentLoadingPhrase}</p>
+          {!isLoading && displayedPrescribers.length === 0 && !searchMessage && medicationName && zipcode && (
+             <div className="p-4 rounded-md text-sm flex items-start bg-blue-50 text-blue-700 border border-blue-200">
+                <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
+                <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter or search terms.</p>
             </div>
           )}
+
 
           {displayedPrescribers.length > 0 && !isLoading && (
             <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner animate-in fade-in-50 duration-700 no-print-section">
@@ -348,7 +380,6 @@ export default function FinderPage() {
                           <span className="font-semibold">{prescriber.prescriberName}</span>
                           {prescriber.credentials && <span className="ml-1.5 text-sm text-muted-foreground">({prescriber.credentials})</span>}
                         </div>
-                        {/* Distance removed */}
                       </CardTitle>
                       {prescriber.specialization && (
                         <CardDescription className="text-xs text-primary/80 -mt-1">
@@ -422,7 +453,6 @@ export default function FinderPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground"><strong>Matched Medication:</strong> {prescriber.medicationMatch}</p>
-                {/* Distance removed */}
                 <div className="flex items-center text-xs text-muted-foreground">
                   <strong>Confidence:</strong>&nbsp;{prescriber.confidenceScore}%
                   <div className={`w-2.5 h-2.5 rounded-full ml-1.5 ${getConfidenceColor(prescriber.confidenceScore)}`}></div>
