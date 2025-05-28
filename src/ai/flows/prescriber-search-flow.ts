@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A Genkit flow to search for prescribers based on medication, zipcode, and search area type.
+ * @fileOverview A Genkit flow to search for prescribers based on medication, zipcode, and search radius.
  *
  * - findPrescribers - The main async function to call the flow.
  * - PrescriberSearchInput - Input type for the flow.
@@ -15,7 +15,7 @@ import { z } from 'genkit'; // Changed from 'zod' to 'genkit'
 const PrescriberSearchInputSchema = z.object({
   medicationName: z.string().describe('The name of the medication to search for.'),
   zipcode: z.string().length(5).describe('The 5-digit ZIP code to search within or derive a prefix from.'),
-  searchAreaType: z.enum(['exact', 'prefix3']).describe("The type of area search: 'exact' for the specific zipcode, 'prefix3' for areas starting with the first 3 digits of the zipcode."),
+  searchRadius: z.number().positive().describe("The search radius in miles from the center of the zipcode."),
 });
 export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
@@ -28,6 +28,7 @@ const PrescriberSchema = z.object({
   phoneNumber: z.string().optional().describe("The prescriber's phone number."),
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count (0-100)."),
+  distance: z.number().optional().describe("Approximate distance in miles from the searched zipcode center."),
 });
 
 const PrescriberSearchOutputSchema = z.object({
@@ -55,7 +56,7 @@ const searchPrescribersFlow = ai.defineFlow(
       const prescribersFromDB: PrescriberRecord[] = await findPrescribersInDB({
         medicationName: input.medicationName,
         zipcode: input.zipcode,
-        searchAreaType: input.searchAreaType,
+        searchRadius: input.searchRadius,
       });
 
       const formattedResults = prescribersFromDB.map(p => {
@@ -79,20 +80,18 @@ const searchPrescribersFlow = ai.defineFlow(
           address: fullAddress || "N/A",
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.phone_number || undefined,
-          medicationMatch: p.drug_name || "N/A",
+          medicationMatch: p.drug_name || "N/A", // Assuming 'drug' from your function is the matched drug name
           confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), 
+          distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
-
-      let searchDescription = `in zipcode ${input.zipcode}`;
-      if (input.searchAreaType === 'prefix3' && input.zipcode.length >=3) {
-        searchDescription = `in the area starting with zipcode prefix ${input.zipcode.substring(0,3)}`;
-      }
+      
+      const searchDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;
       
       if (formattedResults.length === 0) {
         return { 
             results: [], 
-            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (npi_prescriptions, npi_addresses, npi_details), that they are correctly linked by NPI, and contain the relevant data.`
+            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (npi_prescriptions, npi_addresses, npi_details, npi_addresses_usps), that they are correctly linked, and contain relevant data.`
         };
       }
 
@@ -101,11 +100,10 @@ const searchPrescribersFlow = ai.defineFlow(
       console.error("Error in searchPrescribersFlow:", error);
       let errorMessage = "An unexpected error occurred while searching for prescribers.";
       if (error instanceof Error) {
-        // Check if the error message is one of the detailed user-facing messages from databaseService
-        if (error.message.startsWith("Database query failed") || error.message.startsWith("No coordinates found")) {
+        if (error.message.startsWith("Database query failed") || error.message.startsWith("No coordinates found") || error.message.startsWith("Invalid zipcode format") || error.message.startsWith("Invalid coordinates") || error.message.startsWith("Database query error:")) {
           errorMessage = error.message;
         } else {
-           errorMessage = `Flow Error: ${error.message}`; // Generic flow error
+           errorMessage = `Flow Error: ${error.message}`; 
         }
       }
       return { results: [], message: errorMessage };

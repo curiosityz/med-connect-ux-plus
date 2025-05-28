@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, AreaChart } from 'lucide-react';
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare } from 'lucide-react'; // SigmaSquare for Radius
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -22,11 +22,15 @@ interface PrescriberResult {
   phoneNumber?: string;
   medicationMatch: string;
   confidenceScore: number;
+  distance?: number; // Added distance
 }
 
-const searchAreaTypes = [
-  { value: 'exact', label: 'Exact Zipcode' },
-  { value: 'prefix3', label: 'Wider Area (Same 3-digit prefix)' },
+const searchRadiusOptions = [
+  { value: '5', label: '5 miles' },
+  { value: '10', label: '10 miles' },
+  { value: '15', label: '15 miles' },
+  { value: '25', label: '25 miles' },
+  { value: '50', label: '50 miles' },
 ];
 
 const confidenceFilterOptions = [
@@ -39,7 +43,7 @@ const confidenceFilterOptions = [
 const loadingPhrases = [
   "Searching for prescribers...",
   "Accessing medication database...",
-  "Scanning local area data...",
+  "Calculating distances...",
   "Cross-referencing information...",
   "Finalizing results...",
   "Almost there!",
@@ -60,7 +64,7 @@ const formatPhoneNumber = (phoneNumberString?: string): string | undefined => {
 export default function FinderPage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
-  const [searchAreaType, setSearchAreaType] = useState<'exact' | 'prefix3'>(searchAreaTypes[0].value as 'exact' | 'prefix3');
+  const [searchRadius, setSearchRadius] = useState<number>(parseInt(searchRadiusOptions[1].value)); // Default to 10 miles
   const [confidenceFilter, setConfidenceFilter] = useState<string>('any');
   
   const [allPrescribers, setAllPrescribers] = useState<PrescriberResult[]>([]);
@@ -79,7 +83,6 @@ export default function FinderPage() {
     return 'bg-red-500';
   };
 
-  // Effect for loading phrases
   useEffect(() => {
     let phraseInterval: NodeJS.Timeout;
     if (isLoading) {
@@ -97,7 +100,6 @@ export default function FinderPage() {
     };
   }, [isLoading]);
 
-  // Effect for filtering displayed prescribers
   useEffect(() => {
     let filtered = allPrescribers;
     if (confidenceFilter !== 'any') {
@@ -110,50 +112,25 @@ export default function FinderPage() {
     }
     setDisplayedPrescribers(filtered);
   }, [allPrescribers, confidenceFilter]);
-
-  // Effect for updating the search message based on results and filters
+  
   useEffect(() => {
-    if (isLoading) {
-      // Message is handled by loading phrases or is null from handleSearch start
-      return;
-    }
+    if (isLoading) return;
 
-    // At this point, isLoading is false. API call has finished.
-    // The initial message from response.message is ALREADY in the searchMessage state
-    // because it was set directly in handleSearch.
-
-    if (allPrescribers.length > 0) {
-      // API returned results
-      let searchAreaDescription = `in zipcode ${zipcode}`;
-      if (searchAreaType === 'prefix3' && zipcode.length >= 3) {
-        searchAreaDescription = `in the area starting with zipcode prefix ${zipcode.substring(0, 3)}`;
-      }
-      const baseMessageFromCurrentData = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" ${searchAreaDescription}.`;
-
-      if (searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:"))) {
-        // If the API message (already in searchMessage state) was an error or "no results",
-        // we should stick with that, even if allPrescribers somehow got populated (shouldn't happen).
-        // This case is mostly defensive. The toast in handleSearch already handled this.
-      } else if (confidenceFilter !== 'any') {
+    if (allPrescribers.length > 0 && searchMessage && !searchMessage.startsWith("No prescribers found") && !searchMessage.startsWith("Flow Error:") && !searchMessage.startsWith("Database query error:") && !searchMessage.startsWith("Invalid zipcode format") && !searchMessage.startsWith("No coordinates found") && !searchMessage.startsWith("Invalid coordinates")) {
+      let baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
+      if (confidenceFilter !== 'any') {
         if (allPrescribers.length === displayedPrescribers.length) {
-          setSearchMessage(`${baseMessageFromCurrentData} All match current confidence filter.`);
+          setSearchMessage(`${baseMessage} All match current confidence filter.`);
         } else {
-          setSearchMessage(`${baseMessageFromCurrentData} Displaying ${displayedPrescribers.length} after filtering by confidence.`);
+          setSearchMessage(`${baseMessage} Displaying ${displayedPrescribers.length} after filtering by confidence.`);
         }
       } else {
-        // No confidence filter, or API message was not an error/no results.
-        setSearchMessage(baseMessageFromCurrentData);
+        setSearchMessage(baseMessage);
       }
-    } else {
-      // allPrescribers is empty.
-      // `searchMessage` state should already hold the API's message (e.g., "No prescribers found", error, or null).
-      // We don't need to set it again here, as handleSearch took care of it.
-      // If searchMessage is null at this point (e.g. API returned [] results and null message) and a search was made,
-      // the UI will show "No prescribers to display" or similar based on displayedPrescribers.length.
+    } else if (searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query error:") || searchMessage.startsWith("Invalid zipcode format") || searchMessage.startsWith("No coordinates found") || searchMessage.startsWith("Invalid coordinates"))) {
+      // Message already set by handleSearch, do nothing to override it.
     }
-  // Critical: `searchMessage` is NOT a dependency here because this effect SETS it.
-  // Dependencies are the values that, when changed, should lead to recalculating the message.
-  }, [allPrescribers, displayedPrescribers, confidenceFilter, medicationName, zipcode, searchAreaType, isLoading]);
+  }, [allPrescribers, displayedPrescribers, confidenceFilter, medicationName, zipcode, searchRadius, isLoading, searchMessage]);
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -161,7 +138,7 @@ export default function FinderPage() {
     if (!medicationName.trim() || !zipcode.trim()) {
       toast({
         title: 'Missing Information',
-        description: 'Please enter medication name, 5-digit zipcode, and select a search area.',
+        description: 'Please enter medication name, 5-digit zipcode, and select a search radius.',
         variant: 'destructive',
       });
       return;
@@ -183,26 +160,26 @@ export default function FinderPage() {
     const input: PrescriberSearchInput = { 
       medicationName, 
       zipcode,
-      searchAreaType
+      searchRadius: Number(searchRadius)
     };
     
     const response: PrescriberSearchOutput = await findPrescribersAction(input);
 
-    setIsLoading(false); // Set loading to false AFTER the API call.
-    setSearchMessage(response.message || null); // Set message from API response. This is the source of truth.
+    setIsLoading(false);
+    setSearchMessage(response.message || null);
 
     if (response.results && response.results.length > 0) {
-      setAllPrescribers(response.results); // This will trigger the filtering useEffect.
+      setAllPrescribers(response.results);
     } else {
       setAllPrescribers([]); 
       setDisplayedPrescribers([]);
-       if (response.message && (response.message.startsWith("No prescribers found") || response.message.startsWith("Flow Error:"))) {
+       if (response.message) { // API returned a message (error or no results)
          toast({
-            title: response.message.startsWith("Flow Error:") ? 'Search Error' : 'No Results',
+            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query error:") || response.message.startsWith("Invalid zipcode format") || response.message.startsWith("No coordinates found") || response.message.startsWith("Invalid coordinates") ? 'Search Error' : 'No Results',
             description: response.message,
-            variant: response.message.startsWith("Flow Error:") ? 'destructive' : 'default',
+            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query error:") || response.message.startsWith("Invalid zipcode format") || response.message.startsWith("No coordinates found") || response.message.startsWith("Invalid coordinates") ? 'destructive' : 'default',
          });
-       } else if (!response.message) { 
+       } else { // API returned no results and no message
          toast({
             title: 'No Results',
             description: 'No prescribers found matching your criteria.',
@@ -213,12 +190,12 @@ export default function FinderPage() {
   };
 
   const isPrescriberInShortlist = (prescriber: PrescriberResult) => {
-    return shortlist.some(item => item.prescriberName === prescriber.prescriberName && item.address === prescriber.address);
+    return shortlist.some(item => item.prescriberName === prescriber.prescriberName && item.address === prescriber.address && item.medicationMatch === prescriber.medicationMatch);
   };
 
   const toggleShortlist = (prescriber: PrescriberResult) => {
     if (isPrescriberInShortlist(prescriber)) {
-      setShortlist(prev => prev.filter(item => !(item.prescriberName === prescriber.prescriberName && item.address === prescriber.address)));
+      setShortlist(prev => prev.filter(item => !(item.prescriberName === prescriber.prescriberName && item.address === prescriber.address && item.medicationMatch === prescriber.medicationMatch)));
       toast({ title: "Removed from Shortlist", description: `${prescriber.prescriberName} removed.` });
     } else {
       setShortlist(prev => [...prev, prescriber]);
@@ -239,7 +216,7 @@ export default function FinderPage() {
             <CardTitle className="text-3xl font-bold">RX Prescribers Search</CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Find prescribers by medication and location.
+            Find prescribers by medication, location, and radius.
           </CardDescription>
         </CardHeader>
 
@@ -283,20 +260,20 @@ export default function FinderPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="searchAreaType" className="flex items-center text-sm font-medium">
-                  <AreaChart className="h-4 w-4 mr-2 text-primary" /> 
-                  Search Area
+                <Label htmlFor="searchRadius" className="flex items-center text-sm font-medium">
+                   <SigmaSquare className="h-4 w-4 mr-2 text-primary" />
+                   Search Radius
                 </Label>
                 <Select 
-                  value={searchAreaType} 
-                  onValueChange={(value) => setSearchAreaType(value as 'exact' | 'prefix3')}
+                  value={String(searchRadius)} 
+                  onValueChange={(value) => setSearchRadius(parseInt(value))}
                 >
-                  <SelectTrigger id="searchAreaType" className="w-full text-base md:text-sm">
-                    <SelectValue placeholder="Select search area" />
+                  <SelectTrigger id="searchRadius" className="w-full text-base md:text-sm">
+                    <SelectValue placeholder="Select search radius" />
                   </SelectTrigger>
                   <SelectContent>
-                    {searchAreaTypes.map(areaType => (
-                      <SelectItem key={areaType.value} value={areaType.value}>{areaType.label}</SelectItem>
+                    {searchRadiusOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -340,9 +317,9 @@ export default function FinderPage() {
           )}
           
           {!isLoading && searchMessage && (
-            <div className={`p-4 rounded-md text-sm flex items-start ${
-                searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:")
-                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
+             <div className={`p-4 rounded-md text-sm flex items-start ${
+                searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query error:") || searchMessage.startsWith("Invalid zipcode format") || searchMessage.startsWith("No coordinates found") || searchMessage.startsWith("Invalid coordinates")
+                ? 'bg-destructive/10 text-destructive border border-destructive/20' 
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
@@ -350,10 +327,10 @@ export default function FinderPage() {
             </div>
           )}
           
-          {!isLoading && displayedPrescribers.length === 0 && !searchMessage && medicationName && zipcode && (
+          {!isLoading && displayedPrescribers.length === 0 && !searchMessage && (medicationName || zipcode) && (
              <div className="p-4 rounded-md text-sm flex items-start bg-blue-50 text-blue-700 border border-blue-200">
                 <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
-                <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter or search terms.</p>
+                <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter, search radius, or search terms.</p>
             </div>
           )}
 
@@ -396,6 +373,12 @@ export default function FinderPage() {
                         </p>
                       )}
                       <p><strong>Matched Medication:</strong> <span className="font-medium text-foreground">{prescriber.medicationMatch}</span></p>
+                      {prescriber.distance != null && (
+                        <p className="flex items-center">
+                          <Pin className="h-3.5 w-3.5 mr-1.5 text-primary/70" />
+                          <strong>Distance:</strong>&nbsp;~{prescriber.distance} miles
+                        </p>
+                      )}
                       <div className="flex items-center pt-1">
                         <TrendingUp className="h-4 w-4 mr-1.5 text-primary/70" />
                         <strong>Confidence:</strong>&nbsp;{prescriber.confidenceScore}%
@@ -409,7 +392,7 @@ export default function FinderPage() {
           )}
         </CardContent>
         <CardFooter className="text-center text-xs text-muted-foreground/80">
-          <p>Search powered by Genkit and PostgreSQL. Data is for informational purposes only. Results limited (max 50).</p>
+          <p>Search powered by Genkit and PostgreSQL. Data is for informational purposes only. Results limited (max 50). Distances are approximate.</p>
         </CardFooter>
       </Card>
 
@@ -453,6 +436,9 @@ export default function FinderPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground"><strong>Matched Medication:</strong> {prescriber.medicationMatch}</p>
+                 {prescriber.distance != null && (
+                  <p className="text-xs text-muted-foreground"><strong>Distance:</strong> ~{prescriber.distance} miles</p>
+                )}
                 <div className="flex items-center text-xs text-muted-foreground">
                   <strong>Confidence:</strong>&nbsp;{prescriber.confidenceScore}%
                   <div className={`w-2.5 h-2.5 rounded-full ml-1.5 ${getConfidenceColor(prescriber.confidenceScore)}`}></div>
