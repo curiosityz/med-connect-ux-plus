@@ -8,7 +8,7 @@
  * - PrescriberSearchOutput - Output type for the flow.
  */
 
-import { ai } from '@/ai/genkit';
+import {ai} from '@/ai/genkit';
 import { findPrescribersInDB, type PrescriberRecord } from '@/services/databaseService';
 import { z } from 'genkit';
 
@@ -21,11 +21,11 @@ export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
 const PrescriberSchema = z.object({
   prescriberName: z.string().describe("The name of the prescriber."),
-  credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."),
-  specialization: z.string().optional().describe("The prescriber's specialization."),
+  credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."), // Will be undefined if not provided by SQL function
+  specialization: z.string().optional().describe("The prescriber's specialization."), // Will be undefined if not provided by SQL function
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
-  phoneNumber: z.string().optional().describe("The prescriber's phone number."),
+  phoneNumber: z.string().optional().describe("The prescriber's phone number."), // Will be undefined if not provided by SQL function
   medicationMatch: z.string().describe("The name of the medication that matched the search."),
   distance: z.number().describe("The distance in miles from the searched zipcode's center."),
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count (0-100)."),
@@ -37,6 +37,8 @@ const PrescriberSearchOutputSchema = z.object({
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
+// Credentials normalization is kept here in case it's sourced from somewhere else in the future,
+// but currently, the SQL function doesn't return raw credentials for this flow to normalize.
 const normalizeCredentials = (credentials?: string): string | undefined => {
   if (!credentials) return undefined;
   return credentials
@@ -59,35 +61,54 @@ const searchPrescribersFlow = ai.defineFlow(
         searchRadius: input.searchRadius,
       });
 
-      const formattedResults = prescribersFromDB.map(p => ({
-        prescriberName: p.prescriber_name,
-        credentials: normalizeCredentials(p.credentials),
-        specialization: p.specialization, // Specialization is often a phrase, less straightforward to normalize simply
-        address: p.prescriber_address,
-        zipcode: p.prescriber_zipcode,
-        phoneNumber: p.phone_number,
-        medicationMatch: p.medication_name_match,
-        distance: parseFloat(p.distance.toFixed(1)), // Round to 1 decimal place
-        confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), // Updated: 20 claims = 100%
-      }));
+      const formattedResults = prescribersFromDB.map(p => {
+        const prescriberName = [p.provider_first_name, p.provider_last_name_legal_name]
+                                .filter(Boolean) // Remove null or empty parts
+                                .join(' ')
+                                .trim();
+        
+        const addressParts = [
+            p.practice_address1,
+            p.practice_address2,
+            p.practice_city,
+            p.practice_state,
+        ];
+        const fullAddress = addressParts.filter(part => part && part.trim() !== '').join(', ').trim();
+        
+        return {
+          prescriberName: prescriberName || "N/A",
+          // Credentials, specialization, phone number are not directly returned by the user's SQL function
+          // If they were, they'd be mapped here. For now, they'll be undefined.
+          // Example: credentials: normalizeCredentials(p.some_credential_field_from_sql_function), 
+          credentials: undefined, // Placeholder as SQL function doesn't return it
+          specialization: undefined, // Placeholder
+          address: fullAddress || "N/A",
+          zipcode: p.practice_zip || "N/A",
+          phoneNumber: undefined, // Placeholder
+          medicationMatch: p.drug || "N/A",
+          distance: p.distance_miles !== null ? parseFloat(p.distance_miles.toFixed(1)) : 0,
+          confidenceScore: Math.min( (p.claims || 0) * 5, 100), 
+        };
+      });
 
       let searchDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;
       
       if (formattedResults.length === 0) {
         return { 
             results: [], 
-            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. This could be due to no matches, the input zipcode not being found in our location data, or no prescribers having valid geocoded addresses. Please ensure your database contains the 'npi_addresses_usps' table with zipcode coordinates and that the 'calculate_distance' SQL function is defined.`
+            message: `No prescribers found for "${input.medicationName}" ${searchDescription} using the 'find_prescribers_near_zip' database function. This could mean no matches were found by the function, or the function encountered an issue. Please check the database function's logic and data.`
         };
       }
 
-      return { results: formattedResults, message: `Found ${formattedResults.length} prescriber(s) for "${input.medicationName}" ${searchDescription}.` };
+      return { results: formattedResults, message: `Found ${formattedResults.length} prescriber(s) for "${input.medicationName}" ${searchDescription} using the 'find_prescribers_near_zip' database function.` };
     } catch (error) {
-      console.error("Error in searchPrescribersFlow:", error);
-      let errorMessage = "An unexpected error occurred while searching for prescribers.";
+      console.error("Error in searchPrescribersFlow (calling find_prescribers_near_zip):", error);
+      let errorMessage = "An unexpected error occurred while searching for prescribers using the database function.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      return { results: [], message: errorMessage };
+      // Ensure the error message from databaseService (if any) is propagated
+      return { results: [], message: errorMessage.startsWith("Database query failed") ? errorMessage : `Flow Error: ${errorMessage}` };
     }
   }
 );
@@ -95,4 +116,3 @@ const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
-
