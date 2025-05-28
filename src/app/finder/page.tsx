@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare } from 'lucide-react'; // SigmaSquare for Radius
+import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare, Layers } from 'lucide-react'; // Added Layers for Taxonomy
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchInput, PrescriberSearchOutput } from '@/ai/flows/prescriber-search-flow';
 
@@ -17,12 +17,13 @@ interface PrescriberResult {
   prescriberName: string;
   credentials?: string;
   specialization?: string;
+  taxonomyClass?: string; // Added taxonomyClass
   address: string;
   zipcode: string;
   phoneNumber?: string;
   medicationMatch: string;
   confidenceScore: number;
-  distance?: number; // Added distance
+  distance?: number;
 }
 
 const searchRadiusOptions = [
@@ -64,7 +65,7 @@ const formatPhoneNumber = (phoneNumberString?: string): string | undefined => {
 export default function FinderPage() {
   const [medicationName, setMedicationName] = useState('');
   const [zipcode, setZipcode] = useState('');
-  const [searchRadius, setSearchRadius] = useState<number>(parseInt(searchRadiusOptions[1].value)); // Default to 10 miles
+  const [searchRadius, setSearchRadius] = useState<number>(parseInt(searchRadiusOptions[1].value)); 
   const [confidenceFilter, setConfidenceFilter] = useState<string>('any');
   
   const [allPrescribers, setAllPrescribers] = useState<PrescriberResult[]>([]);
@@ -116,21 +117,22 @@ export default function FinderPage() {
   useEffect(() => {
     if (isLoading) return;
 
-    if (allPrescribers.length > 0 && searchMessage && !searchMessage.startsWith("No prescribers found") && !searchMessage.startsWith("Flow Error:") && !searchMessage.startsWith("Database query error:") && !searchMessage.startsWith("Invalid zipcode format") && !searchMessage.startsWith("No coordinates found") && !searchMessage.startsWith("Invalid coordinates")) {
-      let baseMessage = `Found ${allPrescribers.length} prescriber(s) for "${medicationName}" within ${searchRadius} miles of ${zipcode}.`;
-      if (confidenceFilter !== 'any') {
+    if (searchMessage && !searchMessage.startsWith("Flow Error:") && !searchMessage.startsWith("Database query failed")) {
+      let baseMessage = searchMessage.split(" Displaying")[0]; // Get the original message part
+      if (baseMessage.includes("Found 0 prescriber(s)") || baseMessage.includes("No prescribers found")) {
+         // If initial search found 0, message is already set, don't append filter info
+      } else if (confidenceFilter !== 'any') {
         if (allPrescribers.length === displayedPrescribers.length) {
           setSearchMessage(`${baseMessage} All match current confidence filter.`);
         } else {
           setSearchMessage(`${baseMessage} Displaying ${displayedPrescribers.length} after filtering by confidence.`);
         }
       } else {
+        // If no filter, ensure we don't show "All match..." or "Displaying..."
         setSearchMessage(baseMessage);
       }
-    } else if (searchMessage && (searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query error:") || searchMessage.startsWith("Invalid zipcode format") || searchMessage.startsWith("No coordinates found") || searchMessage.startsWith("Invalid coordinates"))) {
-      // Message already set by handleSearch, do nothing to override it.
     }
-  }, [allPrescribers, displayedPrescribers, confidenceFilter, medicationName, zipcode, searchRadius, isLoading, searchMessage]);
+  }, [allPrescribers, displayedPrescribers, confidenceFilter, isLoading, searchMessage]);
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -166,20 +168,20 @@ export default function FinderPage() {
     const response: PrescriberSearchOutput = await findPrescribersAction(input);
 
     setIsLoading(false);
-    setSearchMessage(response.message || null);
+    setSearchMessage(response.message || null); // Set the message directly from API
 
     if (response.results && response.results.length > 0) {
-      setAllPrescribers(response.results);
+      setAllPrescribers(response.results); // This will trigger the filtering useEffect
     } else {
       setAllPrescribers([]); 
       setDisplayedPrescribers([]);
-       if (response.message) { // API returned a message (error or no results)
+       if (response.message) { 
          toast({
-            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query error:") || response.message.startsWith("Invalid zipcode format") || response.message.startsWith("No coordinates found") || response.message.startsWith("Invalid coordinates") ? 'Search Error' : 'No Results',
+            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") ? 'Search Error' : 'No Results',
             description: response.message,
-            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query error:") || response.message.startsWith("Invalid zipcode format") || response.message.startsWith("No coordinates found") || response.message.startsWith("Invalid coordinates") ? 'destructive' : 'default',
+            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") ? 'destructive' : 'default',
          });
-       } else { // API returned no results and no message
+       } else { 
          toast({
             title: 'No Results',
             description: 'No prescribers found matching your criteria.',
@@ -318,7 +320,7 @@ export default function FinderPage() {
           
           {!isLoading && searchMessage && (
              <div className={`p-4 rounded-md text-sm flex items-start ${
-                searchMessage.startsWith("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query error:") || searchMessage.startsWith("Invalid zipcode format") || searchMessage.startsWith("No coordinates found") || searchMessage.startsWith("Invalid coordinates")
+                searchMessage.includes("No prescribers found") || searchMessage.includes("Flow Error:") || searchMessage.includes("Database query failed")
                 ? 'bg-destructive/10 text-destructive border border-destructive/20' 
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
@@ -327,10 +329,10 @@ export default function FinderPage() {
             </div>
           )}
           
-          {!isLoading && displayedPrescribers.length === 0 && !searchMessage && (medicationName || zipcode) && (
+          {!isLoading && displayedPrescribers.length === 0 && allPrescribers.length > 0 && !searchMessage?.includes("No prescribers found") && (
              <div className="p-4 rounded-md text-sm flex items-start bg-blue-50 text-blue-700 border border-blue-200">
                 <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
-                <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter, search radius, or search terms.</p>
+                <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter.</p>
             </div>
           )}
 
@@ -363,6 +365,12 @@ export default function FinderPage() {
                            Specialization: {prescriber.specialization}
                         </CardDescription>
                       )}
+                       {prescriber.taxonomyClass && (
+                        <CardDescription className="text-xs text-primary/80">
+                           <Layers className="h-3 w-3 mr-1 inline-block relative -top-px" />
+                           Taxonomy: {prescriber.taxonomyClass}
+                        </CardDescription>
+                      )}
                     </CardHeader>
                     <CardContent className="text-sm space-y-1.5 text-muted-foreground">
                       <p><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
@@ -392,7 +400,7 @@ export default function FinderPage() {
           )}
         </CardContent>
         <CardFooter className="text-center text-xs text-muted-foreground/80">
-          <p>Search powered by Genkit and PostgreSQL. Data is for informational purposes only. Results limited (max 50). Distances are approximate.</p>
+          <p>Search powered by your SQL function. Data is for informational purposes only. Results limited. Distances are approximate.</p>
         </CardFooter>
       </Card>
 
@@ -427,6 +435,9 @@ export default function FinderPage() {
                 </h3>
                 {prescriber.specialization && (
                   <p className="text-xs text-primary/80 ml-6">{prescriber.specialization}</p>
+                )}
+                {prescriber.taxonomyClass && (
+                  <p className="text-xs text-muted-foreground ml-6"><Layers className="h-3 w-3 mr-1 inline-block relative -top-px" />{prescriber.taxonomyClass}</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-1"><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
                 {prescriber.phoneNumber && (

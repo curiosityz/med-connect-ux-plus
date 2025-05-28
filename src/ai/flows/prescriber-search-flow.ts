@@ -10,11 +10,11 @@
 
 import {ai} from '@/ai/genkit';
 import { findPrescribersInDB, type PrescriberRecord } from '@/services/databaseService';
-import { z } from 'genkit'; // Changed from 'zod' to 'genkit'
+import { z } from 'genkit'; 
 
 const PrescriberSearchInputSchema = z.object({
   medicationName: z.string().describe('The name of the medication to search for.'),
-  zipcode: z.string().length(5).describe('The 5-digit ZIP code to search within or derive a prefix from.'),
+  zipcode: z.string().length(5).describe('The 5-digit ZIP code to search within.'),
   searchRadius: z.number().positive().describe("The search radius in miles from the center of the zipcode."),
 });
 export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
@@ -23,6 +23,7 @@ const PrescriberSchema = z.object({
   prescriberName: z.string().describe("The name of the prescriber."),
   credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."),
   specialization: z.string().optional().describe("The prescriber's specialization."),
+  taxonomyClass: z.string().optional().describe("The prescriber's taxonomy classification."),
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
   phoneNumber: z.string().optional().describe("The prescriber's phone number."),
@@ -37,7 +38,7 @@ const PrescriberSearchOutputSchema = z.object({
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 
-const normalizeCredentials = (credentials?: string): string | undefined => {
+const normalizeCredentials = (credentials?: string | null): string | undefined => {
   if (!credentials) return undefined;
   return credentials
     .replace(/\./g, '') 
@@ -75,13 +76,16 @@ const searchPrescribersFlow = ai.defineFlow(
         
         return {
           prescriberName: prescriberName || "N/A",
-          credentials: normalizeCredentials(p.credentials),
-          specialization: p.specialization || undefined,
+          // Assuming your SQL function `find_prescribers_near_zip_refined` returns these or they are derived
+          // If they are not directly returned, you might need to adjust your SQL function or this mapping
+          credentials: normalizeCredentials(p.provider_credential_text), 
+          specialization: p.healthcare_provider_taxonomy_1_specialization || undefined,
+          taxonomyClass: p.taxonomy_class || undefined,
           address: fullAddress || "N/A",
           zipcode: p.practice_zip || "N/A",
-          phoneNumber: p.phone_number || undefined,
-          medicationMatch: p.drug_name || "N/A", // Assuming 'drug' from your function is the matched drug name
-          confidenceScore: Math.min( (p.total_claim_count || 0) * 5, 100), 
+          phoneNumber: p.provider_business_practice_location_address_telephone_number || undefined,
+          medicationMatch: p.drug || "N/A", 
+          confidenceScore: Math.min( (p.claims || 0) * 5, 100), // Using 'claims' field from new function
           distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
@@ -91,7 +95,7 @@ const searchPrescribersFlow = ai.defineFlow(
       if (formattedResults.length === 0) {
         return { 
             results: [], 
-            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database contains the necessary tables (npi_prescriptions, npi_addresses, npi_details, npi_addresses_usps), that they are correctly linked, and contain relevant data.`
+            message: `No prescribers found for "${input.medicationName}" ${searchDescription}. Please check your spelling or try a different search. Ensure your database function 'find_prescribers_near_zip_refined' is working correctly and the underlying tables (npi_prescriptions, npi_addresses, npi_details, npi_addresses_usps) contain relevant data.`
         };
       }
 
@@ -100,11 +104,7 @@ const searchPrescribersFlow = ai.defineFlow(
       console.error("Error in searchPrescribersFlow:", error);
       let errorMessage = "An unexpected error occurred while searching for prescribers.";
       if (error instanceof Error) {
-        if (error.message.startsWith("Database query failed") || error.message.startsWith("No coordinates found") || error.message.startsWith("Invalid zipcode format") || error.message.startsWith("Invalid coordinates") || error.message.startsWith("Database query error:")) {
-          errorMessage = error.message;
-        } else {
-           errorMessage = `Flow Error: ${error.message}`; 
-        }
+        errorMessage = `Flow Error: ${error.message}`; 
       }
       return { results: [], message: errorMessage };
     }
