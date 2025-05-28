@@ -40,7 +40,8 @@ interface FindPrescribersParams {
 /*
   IMPORTANT: You will need to create a SQL function in your database
   for the Haversine distance calculation. This function should NOT depend on PostGIS.
-  Below is an example of how such a function could be defined in PostgreSQL:
+  Below is an example of how such a function could be defined in PostgreSQL,
+  using an asin-based Haversine formula:
 
   CREATE OR REPLACE FUNCTION public.calculate_haversine_distance(
       lat1 DOUBLE PRECISION,
@@ -51,45 +52,57 @@ interface FindPrescribersParams {
   )
   RETURNS DOUBLE PRECISION AS $$
   DECLARE
-      R DOUBLE PRECISION;
-      phi1 DOUBLE PRECISION;
-      phi2 DOUBLE PRECISION;
-      delta_phi DOUBLE PRECISION;
-      delta_lambda DOUBLE PRECISION;
+      R_km DOUBLE PRECISION := 6371.0;    -- Earth radius in kilometers
+      R_miles DOUBLE PRECISION := 3958.8; -- Earth radius in miles
+      R_selected DOUBLE PRECISION;
+
+      delta_lat_rad DOUBLE PRECISION;
+      delta_lon_rad DOUBLE PRECISION;
+      lat1_rad DOUBLE PRECISION;
+      lat2_rad DOUBLE PRECISION;
       a DOUBLE PRECISION;
       c DOUBLE PRECISION;
+      distance DOUBLE PRECISION;
   BEGIN
       IF lower(units) = 'km' THEN
-          R := 6371.0; -- Radius in kilometers
+          R_selected := R_km;
       ELSIF lower(units) = 'miles' THEN
-          R := 3958.8; -- Radius in miles
+          R_selected := R_miles;
       ELSE
           RAISE EXCEPTION 'Invalid unit: %. Supported units are "km" or "miles".', units;
       END IF;
 
-      phi1 := radians(lat1);
-      phi2 := radians(lat2);
-      delta_phi := radians(lat2 - lat1);
-      delta_lambda := radians(lon2 - lon1);
+      lat1_rad := radians(lat1);
+      lat2_rad := radians(lat2);
+      delta_lat_rad := radians(lat2 - lat1);
+      delta_lon_rad := radians(lon2 - lon1);
 
-      a := sin(delta_phi / 2.0) * sin(delta_phi / 2.0) +
-           cos(phi1) * cos(phi2) *
-           sin(delta_lambda / 2.0) * sin(delta_lambda / 2.0);
+      -- Haversine formula 'a' component
+      a := sin(delta_lat_rad / 2.0) * sin(delta_lat_rad / 2.0) +
+           cos(lat1_rad) * cos(lat2_rad) *
+           sin(delta_lon_rad / 2.0) * sin(delta_lon_rad / 2.0);
 
-      -- Clamp 'a' between 0 and 1 for numerical stability with atan2
-      IF a < 0.0 THEN a := 0.0; END IF;
-      IF a > 1.0 THEN a := 1.0; END IF;
+      -- Ensure 'a' is within valid range for asin (0 to 1) due to potential floating point inaccuracies
+      IF a < 0.0 THEN
+          a := 0.0;
+      ELSIF a > 1.0 THEN
+          a := 1.0;
+      END IF;
 
-      c := 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
+      -- Central angle 'c' using asin
+      c := 2.0 * asin(sqrt(a));
 
-      RETURN R * c;
+      distance := R_selected * c;
+
+      -- Round to 1 decimal place (matches frontend display formatting)
+      RETURN round(CAST(distance AS numeric), 1);
   END;
   $$ LANGUAGE plpgsql IMMUTABLE;
 
   COMMENT ON FUNCTION public.calculate_haversine_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) IS
-  'Calculates the great-circle distance between two points (specified in decimal degrees) on Earth using the Haversine formula. Does NOT use PostGIS.
+  'Calculates the great-circle distance between two points (specified in decimal degrees) on Earth using an asin-based Haversine formula. Does NOT use PostGIS.
   Parameters: lat1, lon1, lat2, lon2, units (''km'' for kilometers, ''miles'' for miles).
-  Returns distance in the specified units.';
+  Returns distance in the specified units, rounded to one decimal place.';
 */
 
 export async function findPrescribersInDB({ medicationName, zipcode, searchRadius }: FindPrescribersParams): Promise<PrescriberRecord[]> {
@@ -110,13 +123,13 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     const geoRes = await client.query(geoQuery, [zipcode]);
 
     if (geoRes.rows.length === 0) {
-      throw new Error(`No coordinates found for zipcode ${zipcode}. Please check the zipcode or ensure it exists in 'npi_addresses_usps' table.`);
+      throw new Error(`No coordinates found for zipcode ${zipcode}. Please check the zipcode or ensure it exists in the 'npi_addresses_usps' table with 'latitude' and 'longitude' columns.`);
     }
     const inputLat = parseFloat(geoRes.rows[0].latitude);
     const inputLon = parseFloat(geoRes.rows[0].longitude);
 
     if (isNaN(inputLat) || isNaN(inputLon)) {
-        throw new Error(`Invalid coordinates for zipcode ${zipcode} in 'npi_addresses_usps' table (latitude: ${geoRes.rows[0].latitude}, longitude: ${geoRes.rows[0].longitude}).`);
+        throw new Error(`Invalid coordinates for zipcode ${zipcode} in 'npi_addresses_usps' table (latitude: ${geoRes.rows[0].latitude}, longitude: ${geoRes.rows[0].longitude}). Ensure these columns are numeric.`);
     }
 
     // 2. Find prescribers, calling the Haversine distance function
@@ -129,7 +142,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         na.provider_second_line_business_practice_location_address AS practice_address2,
         na.provider_business_practice_location_address_city_name AS practice_city,
         na.provider_business_practice_location_address_state_name AS practice_state,
-        LEFT(na.provider_business_practice_location_address_postal_code, 5) AS practice_zip, -- Ensure 5-digit zip for consistency
+        LEFT(na.provider_business_practice_location_address_postal_code, 5) AS practice_zip,
         na.provider_business_practice_location_address_telephone_number AS phone_number,
         nd.provider_credential_text AS credentials,
         nd.healthcare_provider_taxonomy_1_specialization AS specialization,
@@ -156,7 +169,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
       ORDER BY distance_miles ASC NULLS LAST, total_claim_count DESC NULLS LAST, provider_last_name_legal_name, provider_first_name
       LIMIT 50;
     `;
-    // Parameters: $1=medicationName, $2=inputLat, $3=inputLon, $4=searchRadius
+    // Parameters: $1=medicationName (with wildcards), $2=inputLat, $3=inputLon, $4=searchRadius
     const params = [`%${medicationName}%`, inputLat, inputLon, searchRadius];
     const res = await client.query<PrescriberRecord>(query, params);
     return res.rows;
@@ -167,15 +180,15 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
 
     if (error.message && typeof error.message === 'string') {
         if (error.message.includes("column") && error.message.includes("does not exist")) {
-            userMessage = `Database query failed: ${error.message}. Please verify the exact column names (e.g., 'latitude', 'longitude', 'zip_code' in 'public.npi_addresses_usps') and casing in your database schema using 'psql \\d public.npi_addresses_usps'. Also, double-check your .env connection settings and database user permissions.`;
+            userMessage = `Database query failed: ${error.message}. Please verify the exact column names (e.g., 'latitude', 'longitude', 'zip_code' in 'public.npi_addresses_usps') and casing in your database schema using 'psql \\d public.npi_addresses_usps'. Also, double-check your .env connection settings and database user permissions. Ensure column names in the SQL query (like prescriber_geo.latitude) match your schema.`;
         } else if (error.message.includes("No coordinates found")) {
             userMessage = error.message;
         } else if (error.message.includes("Invalid coordinates")) {
             userMessage = error.message;
         } else if (error.message.includes("function public.calculate_haversine_distance") && error.message.includes("does not exist")) {
-            userMessage = "Database query failed: The required 'public.calculate_haversine_distance' SQL function was not found. Please ensure it is created in your database as per the example in databaseService.ts.";
+            userMessage = "Database query failed: The required 'public.calculate_haversine_distance' SQL function was not found. Please ensure it is created in your database as per the example in databaseService.ts and that the application's database user has EXECUTE permission on it.";
         } else {
-            userMessage = `Database query error: ${error.message}. Check database connectivity, table structures, and SQL function definitions.`;
+            userMessage = `Database query error: ${error.message}. Check database connectivity, table structures, user permissions, and SQL function definitions.`;
         }
     }
     throw new Error(userMessage);
