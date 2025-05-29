@@ -20,7 +20,7 @@ const PrescriberSearchInputSchema = z.object({
 export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
 const PrescriberSchema = z.object({
-  npi: z.string().describe("The NPI of the prescriber."), // Changed from bigint to string for easier handling
+  npi: z.string().describe("The NPI of the prescriber."),
   prescriberName: z.string().describe("The name of the prescriber."),
   credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."),
   specialization: z.string().optional().describe("The prescriber's specialization."),
@@ -33,7 +33,6 @@ const PrescriberSchema = z.object({
   distance: z.number().optional().describe("Approximate distance in miles from the searched zipcode center."),
 });
 
-// Define the output type for the flow, which will be used by the action
 const PrescriberSearchOutputSchema = z.object({
     results: z.array(PrescriberSchema),
     message: z.string().optional(),
@@ -89,7 +88,7 @@ const searchPrescribersFlow = ai.defineFlow(
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.provider_business_practice_location_address_telephone_number || undefined,
           matchedMedications: matchedMedsArray,
-          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 5, 100),
+          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 2.5, 100), // Adjusted multiplier
           distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
@@ -123,3 +122,4 @@ const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
+
