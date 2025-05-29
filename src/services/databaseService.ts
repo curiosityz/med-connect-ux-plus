@@ -38,64 +38,16 @@ interface FindPrescribersParams {
   searchRadius: number;
 }
 
-// Example of a Haversine distance calculation function in PL/pgSQL (PostgreSQL)
-// This function does NOT rely on PostGIS geometry types.
-// You would need to create this function in your database IF you choose to use it.
-// The current implementation below embeds the Haversine calculation directly in the query.
-/*
-CREATE OR REPLACE FUNCTION public.calculate_haversine_distance(
-    lat1 DOUBLE PRECISION,
-    lon1 DOUBLE PRECISION,
-    lat2 DOUBLE PRECISION,
-    lon2 DOUBLE PRECISION,
-    units TEXT DEFAULT 'miles' -- 'km' or 'miles'
-)
-RETURNS DOUBLE PRECISION AS $$
-DECLARE
-    R DOUBLE PRECISION;
-    phi1 DOUBLE PRECISION;
-    phi2 DOUBLE PRECISION;
-    delta_phi DOUBLE PRECISION;
-    delta_lambda DOUBLE PRECISION;
-    a DOUBLE PRECISION;
-    c DOUBLE PRECISION;
-    distance DOUBLE PRECISION;
-BEGIN
-    IF lower(units) = 'km' THEN
-        R := 6371.0; -- Radius in kilometers
-    ELSIF lower(units) = 'miles' THEN
-        R := 3958.8; -- Radius in miles
-    ELSE
-        RAISE EXCEPTION 'Invalid unit: %. Supported units are "km" or "miles".', units;
-    END IF;
-
-    phi1 := radians(lat1);
-    phi2 := radians(lat2);
-    delta_phi := radians(lat2 - lat1);
-    delta_lambda := radians(lon2 - lon1);
-
-    -- Haversine formula using asin
-    a := sin(delta_phi / 2.0)^2 +
-         cos(phi1) * cos(phi2) *
-         sin(delta_lambda / 2.0)^2;
-    
-    IF a < 0.0 THEN a := 0.0; END IF;
-    IF a > 1.0 THEN a := 1.0; END IF;
-
-    c := 2.0 * asin(sqrt(a)); -- More direct form
-    -- c := 2.0 * atan2(sqrt(a), sqrt(1.0 - a)); -- Numerically stabler for small distances
-
-    distance := R * c;
-
-    RETURN distance;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-COMMENT ON FUNCTION public.calculate_haversine_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) IS
-'Calculates the great-circle distance between two points (specified in decimal degrees) on Earth using the Haversine formula.
-Parameters: lat1, lon1, lat2, lon2, units (''km'' for kilometers, ''miles'' for miles).
-Returns distance in the specified units.';
-*/
+// Helper function to robustly parse a value to a number
+const valueAsNumber = (val: any): number | null => {
+    if (val === null || typeof val === 'undefined') return null; // handles null or undefined
+    if (typeof val === 'number') {
+        return Number.isNaN(val) ? null : val; // handles primitive numbers, including NaN
+    }
+    // For strings or other types (like Decimal objects from some DB drivers that stringify to numbers)
+    const num = parseFloat(String(val)); // String(val) is key for objects
+    return Number.isNaN(num) ? null : num;
+};
 
 
 export async function findPrescribersInDB({ medicationName, zipcode, searchRadius }: FindPrescribersParams): Promise<PrescriberRecord[]> {
@@ -104,6 +56,7 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     return [];
   }
   if (!/^\d{5}$/.test(zipcode)) {
+    // This check is good, but the action layer also does it.
     throw new Error("Invalid zipcode format. Must be 5 digits.");
   }
 
@@ -123,36 +76,20 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     const rawInputZipLat = zipCoordRes.rows[0].latitude;
     const rawInputZipLon = zipCoordRes.rows[0].longitude;
 
-    let parsedInputZipLat: number | null = null;
-    let parsedInputZipLon: number | null = null;
-
-    if (rawInputZipLat != null) {
-        if (typeof rawInputZipLat === 'number') {
-            parsedInputZipLat = rawInputZipLat;
-        } else if (typeof rawInputZipLat === 'string') {
-            parsedInputZipLat = parseFloat(rawInputZipLat);
-            if (isNaN(parsedInputZipLat)) parsedInputZipLat = null;
-        }
-    }
-
-    if (rawInputZipLon != null) {
-        if (typeof rawInputZipLon === 'number') {
-            parsedInputZipLon = rawInputZipLon;
-        } else if (typeof rawInputZipLon === 'string') {
-            parsedInputZipLon = parseFloat(rawInputZipLon);
-            if (isNaN(parsedInputZipLon)) parsedInputZipLon = null;
-        }
-    }
-
-    if (parsedInputZipLat == null || parsedInputZipLon == null) {
+    const parsedInputZipLat = valueAsNumber(rawInputZipLat);
+    const parsedInputZipLon = valueAsNumber(rawInputZipLon);
+    
+    if (parsedInputZipLat === null || parsedInputZipLon === null) {
         console.error(
-            `Invalid or non-numeric coordinates for input zipcode ${zipcode}. Latitude_raw: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Longitude_raw: ${rawInputZipLon} (type: ${typeof rawInputZipLon}). Parsed as: Lat: ${parsedInputZipLat}, Lon: ${parsedInputZipLon}. Please check the npi_addresses_usps table.`
+            `Failed to parse coordinates for input zipcode ${zipcode}. ` +
+            `Raw Latitude: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Parsed Latitude: ${parsedInputZipLat}. ` +
+            `Raw Longitude: ${rawInputZipLon} (type: ${typeof rawInputZipLon}), Parsed Longitude: ${parsedInputZipLon}. ` +
+            `Please check the npi_addresses_usps table for valid numeric coordinates.`
         );
         throw new Error(
             `Location data for zipcode ${zipcode} is invalid or non-numeric. Ensure latitude and longitude are valid numbers in the npi_addresses_usps table.`
         );
     }
-
 
     // 2. Main query to find prescribers, calling the public.calculate_distance SQL function
     const query = `
@@ -208,20 +145,17 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
   } catch (error: any) {
     console.error("Error in findPrescribersInDB:", error);
     let userMessage = `Database query failed. Please check database connectivity, table structures (npi_prescriptions, npi_details, npi_addresses, npi_addresses_usps), and the 'public.calculate_distance' SQL function.`;
+    
     if (error.message && typeof error.message === 'string') {
       if (error.message.startsWith("Location data for zipcode") && error.message.includes("is invalid or non-numeric")) {
-        userMessage = error.message; // Use the more specific error message from the coordinate check
+        userMessage = error.message; 
       } else if (error.message.startsWith("Could not find location data for zipcode")){
-        userMessage = error.message; // Use the message if zipcode not found in npi_addresses_usps
+        userMessage = error.message; 
+      } else if (error.message.includes("column") && error.message.includes("does not exist")) {
+           userMessage += ` Original error: ${error.message}.\n\nSpecific 'column does not exist' error detected. Please verify:\n1. The EXACT column name and casing in your PostgreSQL table using psql (e.g., \\d public.your_table_name). Unquoted names are usually stored as lowercase.\n2. Your .env file's PG_HOST, PG_DATABASE, PG_USER, PG_PORT, NEXT_DB_PASSWORD are correct and point to the database you are inspecting.\n3. The database user ('${dbConfig.user || 'unknown'}') has SELECT permissions on all involved tables and columns.`;
       } else {
         userMessage += ` Original error: ${error.message}`;
       }
-    }
-    if (error.message && typeof error.message === 'string' && error.message.includes("column") && error.message.includes("does not exist")) {
-        userMessage += `\n\nSpecific 'column does not exist' error detected. Please verify:
-1.  The EXACT column name and casing in your PostgreSQL table using psql (e.g., \\d public.npi_addresses_usps). Unquoted names are stored as lowercase.
-2.  Your .env file's PG_HOST, PG_DATABASE, PG_USER, PG_PORT, NEXT_DB_PASSWORD are correct and point to the database you are inspecting.
-3.  The database user ('${dbConfig.user || 'unknown'}') has SELECT permissions on all involved tables and columns.`;
     }
     throw new Error(userMessage);
   } finally {
@@ -230,4 +164,3 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     }
   }
 }
-
