@@ -40,9 +40,10 @@ interface FindPrescribersParams {
 
 // Example of a Haversine distance calculation function in PL/pgSQL (PostgreSQL)
 // This function does NOT rely on PostGIS geometry types.
-// You would need to create this function in your database.
+// You would need to create this function in your database IF you choose to use it.
+// The current implementation below embeds the Haversine calculation directly in the query.
 /*
-CREATE OR REPLACE FUNCTION public.calculate_distance(
+CREATE OR REPLACE FUNCTION public.calculate_haversine_distance(
     lat1 DOUBLE PRECISION,
     lon1 DOUBLE PRECISION,
     lat2 DOUBLE PRECISION,
@@ -78,18 +79,19 @@ BEGIN
          cos(phi1) * cos(phi2) *
          sin(delta_lambda / 2.0)^2;
     
-    -- Ensure 'a' is within valid range for asin
     IF a < 0.0 THEN a := 0.0; END IF;
     IF a > 1.0 THEN a := 1.0; END IF;
 
-    c := 2.0 * asin(sqrt(a));
+    c := 2.0 * asin(sqrt(a)); -- More direct form
+    -- c := 2.0 * atan2(sqrt(a), sqrt(1.0 - a)); -- Numerically stabler for small distances
+
     distance := R * c;
 
     RETURN distance;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
-COMMENT ON FUNCTION public.calculate_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) IS
+COMMENT ON FUNCTION public.calculate_haversine_distance(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) IS
 'Calculates the great-circle distance between two points (specified in decimal degrees) on Earth using the Haversine formula.
 Parameters: lat1, lon1, lat2, lon2, units (''km'' for kilometers, ''miles'' for miles).
 Returns distance in the specified units.';
@@ -118,21 +120,41 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
       throw new Error(`Could not find location data for zipcode ${zipcode}. Please ensure it's a valid 5-digit US zipcode present in the npi_addresses_usps table.`);
     }
     
-    const inputZipLat = zipCoordRes.rows[0].latitude;
-    const inputZipLon = zipCoordRes.rows[0].longitude;
+    const rawInputZipLat = zipCoordRes.rows[0].latitude;
+    const rawInputZipLon = zipCoordRes.rows[0].longitude;
 
-    // Check if latitude or longitude are null, undefined, or not numbers
-    if (inputZipLat == null || inputZipLon == null || typeof inputZipLat !== 'number' || typeof inputZipLon !== 'number') {
+    let parsedInputZipLat: number | null = null;
+    let parsedInputZipLon: number | null = null;
+
+    if (rawInputZipLat != null) {
+        if (typeof rawInputZipLat === 'number') {
+            parsedInputZipLat = rawInputZipLat;
+        } else if (typeof rawInputZipLat === 'string') {
+            parsedInputZipLat = parseFloat(rawInputZipLat);
+            if (isNaN(parsedInputZipLat)) parsedInputZipLat = null;
+        }
+    }
+
+    if (rawInputZipLon != null) {
+        if (typeof rawInputZipLon === 'number') {
+            parsedInputZipLon = rawInputZipLon;
+        } else if (typeof rawInputZipLon === 'string') {
+            parsedInputZipLon = parseFloat(rawInputZipLon);
+            if (isNaN(parsedInputZipLon)) parsedInputZipLon = null;
+        }
+    }
+
+    if (parsedInputZipLat == null || parsedInputZipLon == null) {
         console.error(
-            `Invalid or missing coordinates for input zipcode ${zipcode}. Latitude: ${inputZipLat} (type: ${typeof inputZipLat}), Longitude: ${inputZipLon} (type: ${typeof inputZipLon}). Please check the npi_addresses_usps table.`
+            `Invalid or non-numeric coordinates for input zipcode ${zipcode}. Latitude_raw: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Longitude_raw: ${rawInputZipLon} (type: ${typeof rawInputZipLon}). Parsed as: Lat: ${parsedInputZipLat}, Lon: ${parsedInputZipLon}. Please check the npi_addresses_usps table.`
         );
         throw new Error(
-            `Location data for zipcode ${zipcode} is invalid or incomplete (latitude/longitude are missing, null, or not numbers). Please verify the entry for this zipcode in the npi_addresses_usps table.`
+            `Location data for zipcode ${zipcode} is invalid or non-numeric. Ensure latitude and longitude are valid numbers in the npi_addresses_usps table.`
         );
     }
 
 
-    // 2. Main query to find prescribers
+    // 2. Main query to find prescribers, calling the public.calculate_distance SQL function
     const query = `
       SELECT
         nd.npi,
@@ -165,19 +187,19 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         public.npi_addresses_usps prescriber_geo ON SUBSTRING(na.provider_business_practice_location_address_postal_code FROM 1 FOR 5) = prescriber_geo.zip_code
       WHERE
         (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1)
-        AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL -- Ensure prescriber has coordinates
+        AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL 
       HAVING
         public.calculate_distance($2, $3, prescriber_geo.latitude, prescriber_geo.longitude, 'miles') <= $4
       ORDER BY
         distance_miles ASC
-      LIMIT 200; -- Add a reasonable limit
+      LIMIT 200;
     `;
     
     const params = [
-        `%${medicationName}%`, // $1 for ILIKE
-        inputZipLat,           // $2 for calculate_distance (input_zip_lat)
-        inputZipLon,           // $3 for calculate_distance (input_zip_lon)
-        searchRadius           // $4 for HAVING clause
+        `%${medicationName}%`, 
+        parsedInputZipLat,      
+        parsedInputZipLon,      
+        searchRadius         
     ];
     
     const res = await client.query<PrescriberRecord>(query, params);
@@ -187,7 +209,13 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     console.error("Error in findPrescribersInDB:", error);
     let userMessage = `Database query failed. Please check database connectivity, table structures (npi_prescriptions, npi_details, npi_addresses, npi_addresses_usps), and the 'public.calculate_distance' SQL function.`;
     if (error.message && typeof error.message === 'string') {
-      userMessage += ` Original error: ${error.message}`;
+      if (error.message.startsWith("Location data for zipcode") && error.message.includes("is invalid or non-numeric")) {
+        userMessage = error.message; // Use the more specific error message from the coordinate check
+      } else if (error.message.startsWith("Could not find location data for zipcode")){
+        userMessage = error.message; // Use the message if zipcode not found in npi_addresses_usps
+      } else {
+        userMessage += ` Original error: ${error.message}`;
+      }
     }
     if (error.message && typeof error.message === 'string' && error.message.includes("column") && error.message.includes("does not exist")) {
         userMessage += `\n\nSpecific 'column does not exist' error detected. Please verify:
@@ -202,3 +230,4 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     }
   }
 }
+
