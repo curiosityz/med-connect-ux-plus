@@ -10,10 +10,11 @@
 
 import {ai} from '@/ai/genkit';
 import { findPrescribersInDB, type PrescriberRecord } from '@/services/databaseService';
-import { z } from 'genkit'; // Use z from genkit
+import { normalizeMedicationSearchTerms } from '@/lib/medication-normalizer';
+import { z } from 'genkit';
 
 const PrescriberSearchInputSchema = z.object({
-  medicationNames: z.array(z.string().trim().min(1)).min(1).describe('An array of medication names to search for (e.g., ["Lisinopril", "Metformin"]).'),
+  medicationNames: z.array(z.string().trim().min(1)).min(1).describe('An array of medication names to search for (e.g., ["Lisinopril", "Metformin", "Lipitor"]).'),
   zipcode: z.string().length(5).describe('The 5-digit ZIP code to search within.'),
   searchRadius: z.number().positive().describe("The search radius in miles from the center of the zipcode."),
 });
@@ -28,7 +29,7 @@ const PrescriberSchema = z.object({
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
   phoneNumber: z.string().optional().describe("The prescriber's phone number."),
-  matchedMedications: z.array(z.string()).describe("The names of the searched medications that this prescriber has a history of prescribing and were part of the search criteria."),
+  matchedMedications: z.array(z.string()).describe("The canonical names of the searched medications that this prescriber has a history of prescribing and were part of the (potentially normalized) search criteria."),
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count for the matched medications (0-100)."),
   distance: z.number().optional().describe("Approximate distance in miles from the searched zipcode center."),
 });
@@ -56,8 +57,17 @@ const searchPrescribersFlow = ai.defineFlow(
   },
   async (input: PrescriberSearchInput): Promise<PrescriberSearchOutput> => {
     try {
+      const normalizedMedicationNames = normalizeMedicationSearchTerms(input.medicationNames);
+
+      if (normalizedMedicationNames.length === 0) {
+        return {
+            results: [],
+            message: `No valid medication names provided after normalization. Original input: "${input.medicationNames.join(', ')}". Please check your spelling or try different medication names.`
+        };
+      }
+
       const prescribersFromDB: PrescriberRecord[] = await findPrescribersInDB({
-        medicationNames: input.medicationNames,
+        medicationNames: normalizedMedicationNames,
         zipcode: input.zipcode,
         searchRadius: input.searchRadius,
       });
@@ -76,10 +86,11 @@ const searchPrescribersFlow = ai.defineFlow(
         ];
         const fullAddress = addressParts.filter(part => part && part.trim() !== '').join(', ').trim();
         
+        // matched_medications from DB should already be an array of strings
         const matchedMedsArray = Array.isArray(p.matched_medications) ? p.matched_medications : [];
 
         return {
-          npi: String(p.npi), // Convert BigInt to string
+          npi: String(p.npi),
           prescriberName: prescriberName || "N/A",
           credentials: normalizeCredentials(p.provider_credential_text),
           specialization: p.healthcare_provider_taxonomy_1_specialization || undefined,
@@ -88,18 +99,18 @@ const searchPrescribersFlow = ai.defineFlow(
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.provider_business_practice_location_address_telephone_number || undefined,
           matchedMedications: matchedMedsArray,
-          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 2.5, 100), // Adjusted multiplier
+          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 2.5, 100),
           distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
 
-      const searchMedicationsString = input.medicationNames.join(', ');
+      const searchMedicationsString = normalizedMedicationNames.join(', ');
       const searchLocationDescription = `within ${input.searchRadius} miles of zipcode ${input.zipcode}`;
 
       if (formattedResults.length === 0) {
         return {
             results: [],
-            message: `No prescribers found who prescribed ALL of the medications: "${searchMedicationsString}" ${searchLocationDescription}. Please check spellings or try a different search. Ensure your database and 'public.calculate_distance' function are working correctly.`
+            message: `No prescribers found who prescribed ALL of the medications: "${searchMedicationsString}" ${searchLocationDescription}. This could be due to the specific combination, spelling, or data availability. Original search terms: "${input.medicationNames.join(', ')}".`
         };
       }
 
@@ -122,4 +133,3 @@ const searchPrescribersFlow = ai.defineFlow(
 export async function findPrescribers(input: PrescriberSearchInput): Promise<PrescriberSearchOutput> {
   return searchPrescribersFlow(input);
 }
-
