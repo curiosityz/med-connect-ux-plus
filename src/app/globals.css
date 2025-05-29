@@ -166,6 +166,24 @@
     background-color: #fff !important; /* Remove fill color for print */
   }
 
+  .printable-shortlist-area .shortlist-notes-print {
+    visibility: visible !important;
+    display: block !important;
+    background-color: #f9f9f9 !important; /* Light background for notes */
+    border: 1px dashed #ddd !important;
+    padding: 4px !important;
+    margin-top: 5px !important;
+    color: #000 !important;
+    width: 100% !important; /* Ensure it takes full width in print */
+    min-height: 30px !important; /* Give it some min height */
+    font-size: 8pt !important;
+  }
+  .printable-shortlist-area .shortlist-notes-print::before {
+    content: "Notes: ";
+    font-weight: bold;
+    display: block;
+    margin-bottom: 2px;
+  }
   /* Hide Clerk elements if they appear */
   #__clerk-component-root, .clerk-component {
     display: none !important;

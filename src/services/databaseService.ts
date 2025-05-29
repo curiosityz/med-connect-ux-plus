@@ -14,27 +14,26 @@ const dbConfig = {
     : undefined,
 };
 
-// This interface should now match the columns returned by the new complex query
 export interface PrescriberRecord extends QueryResultRow {
-  npi: bigint;
+  npi: bigint; // NPI is crucial for unique identification
   provider_first_name: string | null;
   provider_last_name_legal_name: string | null;
-  provider_credential_text: string | null; // From npi_details
-  healthcare_provider_taxonomy_1_specialization: string | null; // From npi_details
-  taxonomy_class: string | null; // From npi_details (healthcare_provider_taxonomy_1_classification)
-  provider_business_practice_location_address_telephone_number: string | null; // From npi_addresses
+  provider_credential_text: string | null;
+  healthcare_provider_taxonomy_1_specialization: string | null;
+  taxonomy_class: string | null;
+  provider_business_practice_location_address_telephone_number: string | null;
   practice_address1: string | null;
   practice_address2: string | null;
   practice_city: string | null;
   practice_state: string | null;
   practice_zip: string | null;
-  matched_medications: string[]; // Array of matched drug names
-  total_claims_for_matched_meds: number | null; // Sum of claims for the matched medications
+  matched_medications: string[];
+  total_claims_for_matched_meds: number | null;
   distance_miles: number | null;
 }
 
 interface FindPrescribersParams {
-  medicationNames: string[]; // Changed from medicationName: string
+  medicationNames: string[];
   zipcode: string;
   searchRadius: number;
 }
@@ -44,7 +43,9 @@ const valueAsNumber = (val: any): number | null => {
     if (typeof val === 'number') {
         return Number.isNaN(val) ? null : val;
     }
-    const num = parseFloat(String(val));
+    // Attempt to convert to string first, then parseFloat
+    const strVal = String(val);
+    const num = parseFloat(strVal);
     return Number.isNaN(num) ? null : num;
 };
 
@@ -76,15 +77,63 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
     const parsedInputZipLon = valueAsNumber(rawInputZipLon);
 
     if (parsedInputZipLat === null || parsedInputZipLon === null) {
-        const errorMessage = `Location data for zipcode ${zipcode} is invalid or non-numeric. Ensure latitude and longitude are valid numbers in the npi_addresses_usps table. Raw Latitude: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Parsed Latitude: ${parsedInputZipLat}. Raw Longitude: ${rawInputZipLon} (type: ${typeof rawInputZipLon}), Parsed Longitude: ${parsedInputZipLon}.`;
+        const errorMessage = `Location data for zipcode ${zipcode} is invalid or incomplete (latitude/longitude are missing, null, or not numbers). Please check the npi_addresses_usps table. Raw Latitude: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Parsed Latitude: ${parsedInputZipLat}. Raw Longitude: ${rawInputZipLon} (type: ${typeof rawInputZipLon}), Parsed Longitude: ${parsedInputZipLon}.`;
         console.error(errorMessage);
         throw new Error(errorMessage);
     }
 
+    // This is an example function. You MUST create this function in your PostgreSQL database.
+    // It should take lat1, lon1, lat2, lon2, units (e.g., 'miles') and return distance.
+    // Ensure it does NOT use PostGIS geometry types if PostGIS is unavailable.
+    /*
+      CREATE OR REPLACE FUNCTION public.calculate_distance(
+          lat1 DOUBLE PRECISION,
+          lon1 DOUBLE PRECISION,
+          lat2 DOUBLE PRECISION,
+          lon2 DOUBLE PRECISION,
+          units TEXT DEFAULT 'miles'
+      )
+      RETURNS DOUBLE PRECISION AS $$
+      DECLARE
+          R DOUBLE PRECISION;
+          phi1 DOUBLE PRECISION;
+          phi2 DOUBLE PRECISION;
+          delta_phi DOUBLE PRECISION;
+          delta_lambda DOUBLE PRECISION;
+          a DOUBLE PRECISION;
+          c DOUBLE PRECISION;
+      BEGIN
+          IF lower(units) = 'miles' THEN
+              R := 3958.8; -- Radius in miles
+          ELSIF lower(units) = 'km' THEN
+              R := 6371.0; -- Radius in kilometers
+          ELSE
+              RAISE EXCEPTION 'Invalid unit: %. Supported units are "miles" or "km".', units;
+          END IF;
+
+          phi1 := radians(lat1);
+          phi2 := radians(lat2);
+          delta_phi := radians(lat2 - lat1);
+          delta_lambda := radians(lon2 - lon1);
+
+          -- Using asin variant of Haversine
+          a := sin(delta_phi / 2.0)^2 + cos(phi1) * cos(phi2) * sin(delta_lambda / 2.0)^2;
+          
+          -- Ensure 'a' is within valid range for asin
+          IF a < 0.0 THEN a := 0.0; END IF;
+          IF a > 1.0 THEN a := 1.0; END IF;
+
+          c := 2.0 * asin(sqrt(a)); -- this is 2 * atan2(sqrt(a), sqrt(1-a)) for small angles
+          
+          RETURN R * c;
+      END;
+      $$ LANGUAGE plpgsql IMMUTABLE;
+    */
+
     const query = `
       WITH input_zip_coords AS (
           SELECT $2::double precision AS latitude, $3::double precision AS longitude
-      ), PrescriberMatches AS (
+      ), PrescriberBase AS (
           SELECT
               nd.npi,
               nd.provider_first_name,
@@ -118,7 +167,7 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
                   SELECT 1 FROM unnest($1::text[]) AS search_med
                   WHERE LOWER(COALESCE(np.drug_name, np.generic_name)) ILIKE ('%' || LOWER(TRIM(search_med)) || '%')
               )
-              AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL
+              AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL -- Ensure prescriber has valid coordinates
       )
       SELECT
           pm.npi,
@@ -137,12 +186,14 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
           SUM(pm.total_claim_count) AS total_claims_for_matched_meds,
           public.calculate_distance(pm.input_lat, pm.input_lon, pm.prescriber_lat, pm.prescriber_lon, 'miles') AS distance_miles
       FROM
-          PrescriberMatches pm
+          PrescriberBase pm
       GROUP BY
           pm.npi, pm.provider_first_name, pm.provider_last_name_legal_name, pm.provider_credential_text,
           pm.healthcare_provider_taxonomy_1_specialization, pm.taxonomy_class, pm.provider_business_practice_location_address_telephone_number,
           pm.practice_address1, pm.practice_address2, pm.practice_city, pm.practice_state, pm.practice_zip,
-          pm.input_lat, pm.input_lon, pm.prescriber_lat, pm.prescriber_lon
+          pm.input_lat, pm.input_lon, pm.prescriber_lat, pm.prescriber_lon 
+          -- Important: All non-aggregated selected columns must be in GROUP BY
+          -- Including coordinates used by the calculate_distance in HAVING
       HAVING
           COUNT(DISTINCT pm.matched_drug_lower) = (
               SELECT COUNT(DISTINCT LOWER(TRIM(s_med))) FROM unnest($1::text[]) AS s_med WHERE TRIM(s_med) <> ''
@@ -185,5 +236,3 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
     }
   }
 }
-
-    

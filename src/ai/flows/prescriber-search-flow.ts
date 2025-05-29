@@ -20,6 +20,7 @@ const PrescriberSearchInputSchema = z.object({
 export type PrescriberSearchInput = z.infer<typeof PrescriberSearchInputSchema>;
 
 const PrescriberSchema = z.object({
+  npi: z.string().describe("The NPI of the prescriber."), // Changed from bigint to string for easier handling
   prescriberName: z.string().describe("The name of the prescriber."),
   credentials: z.string().optional().describe("The prescriber's credentials (e.g., MD, DDS)."),
   specialization: z.string().optional().describe("The prescriber's specialization."),
@@ -27,7 +28,7 @@ const PrescriberSchema = z.object({
   address: z.string().describe("The full address of the prescriber."),
   zipcode: z.string().describe("The prescriber's zipcode."),
   phoneNumber: z.string().optional().describe("The prescriber's phone number."),
-  matchedMedications: z.array(z.string()).describe("The names of the searched medications that this prescriber has a history of prescribing."),
+  matchedMedications: z.array(z.string()).describe("The names of the searched medications that this prescriber has a history of prescribing and were part of the search criteria."),
   confidenceScore: z.number().min(0).max(100).describe("A confidence score based on claim count for the matched medications (0-100)."),
   distance: z.number().optional().describe("Approximate distance in miles from the searched zipcode center."),
 });
@@ -76,11 +77,10 @@ const searchPrescribersFlow = ai.defineFlow(
         ];
         const fullAddress = addressParts.filter(part => part && part.trim() !== '').join(', ').trim();
         
-        // Ensure matched_medications is an array, even if null/undefined from DB.
-        // The SQL query with ARRAY_AGG should return an array, but this is a safe default.
         const matchedMedsArray = Array.isArray(p.matched_medications) ? p.matched_medications : [];
 
         return {
+          npi: String(p.npi), // Convert BigInt to string
           prescriberName: prescriberName || "N/A",
           credentials: normalizeCredentials(p.provider_credential_text),
           specialization: p.healthcare_provider_taxonomy_1_specialization || undefined,
@@ -88,8 +88,8 @@ const searchPrescribersFlow = ai.defineFlow(
           address: fullAddress || "N/A",
           zipcode: p.practice_zip || "N/A",
           phoneNumber: p.provider_business_practice_location_address_telephone_number || undefined,
-          matchedMedications: matchedMedsArray, // Use the new array field
-          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 5, 100), // Use aggregated claims
+          matchedMedications: matchedMedsArray,
+          confidenceScore: Math.min( (p.total_claims_for_matched_meds || 0) * 5, 100),
           distance: p.distance_miles != null ? parseFloat(p.distance_miles.toFixed(1)) : undefined,
         };
       });
@@ -115,7 +115,6 @@ const searchPrescribersFlow = ai.defineFlow(
       if (error instanceof Error) {
         errorMessage = `Flow Error: ${error.message}`;
       }
-      // Ensure the returned object matches PrescriberSearchOutput
       return { results: [], message: errorMessage };
     }
   }

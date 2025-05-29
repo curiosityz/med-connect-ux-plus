@@ -8,14 +8,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea'; // Import Textarea
 import { useToast } from '@/hooks/use-toast';
 import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare, Layers } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
-// PrescriberSearchActionOutput is the type for data returned by the server action
 import type { PrescriberSearchActionOutput } from '../actions';
 
 
 interface PrescriberResult {
+  npi: string; // NPI for unique identification
   prescriberName: string;
   credentials?: string;
   specialization?: string;
@@ -23,14 +24,11 @@ interface PrescriberResult {
   address: string;
   zipcode: string;
   phoneNumber?: string;
-  matchedMedications: string[]; // Changed from medicationMatch
+  matchedMedications: string[];
   confidenceScore: number;
   distance?: number;
+  notes?: string; // For shortlist notes
 }
-
-// This local type should align with the structure of `results` in `PrescriberSearchActionOutput`
-// It's essentially the same as `PrescriberResult` but good to be explicit if needed later.
-// For now, PrescriberResult is sufficient.
 
 const searchRadiusOptions = [
   { value: '5', label: '5 miles' },
@@ -70,7 +68,7 @@ const formatPhoneNumber = (phoneNumberString?: string): string | undefined => {
 };
 
 export default function FinderPage() {
-  const [medicationNamesInput, setMedicationNamesInput] = useState(''); // For comma-separated string
+  const [medicationNamesInput, setMedicationNamesInput] = useState('');
   const [zipcode, setZipcode] = useState('');
   const [searchRadius, setSearchRadius] = useState<number>(parseInt(searchRadiusOptions[1].value));
   const [confidenceFilter, setConfidenceFilter] = useState<string>('any');
@@ -122,21 +120,17 @@ export default function FinderPage() {
   }, [allPrescribers, confidenceFilter]);
 
   useEffect(() => {
-    if (isLoading || !searchMessage) return; // Don't update message if loading or no initial message
+    if (isLoading || !searchMessage) return;
 
     let currentBaseMessage = searchMessage.split(" Displaying")[0].split(" All match")[0];
     
-    // Prevent message update if it's a critical error message that shouldn't be changed by filtering
     const criticalErrorMessages = ["Flow Error:", "Database query failed", "Could not find location data for zipcode", "An unexpected error occurred"];
     if (criticalErrorMessages.some(err => currentBaseMessage.startsWith(err))) {
-        // setSearchMessage(currentBaseMessage); // Ensure it stays as the critical error
         return;
     }
 
-
     if (currentBaseMessage.includes("No prescribers found")) {
-        // If the base message is "No prescribers found", don't append filter info
-        // setSearchMessage(currentBaseMessage); // Already set by handleSearch
+      // Message already set by handleSearch
     } else if (allPrescribers.length > 0) {
         if (confidenceFilter !== 'any') {
             if (displayedPrescribers.length === 0) {
@@ -147,15 +141,11 @@ export default function FinderPage() {
                 setSearchMessage(`${currentBaseMessage} Displaying ${displayedPrescribers.length} of ${allPrescribers.length} after filtering by confidence.`);
             }
         } else {
-             setSearchMessage(currentBaseMessage); // Revert to base if filter is 'any'
+             setSearchMessage(currentBaseMessage);
         }
-    } else if (!currentBaseMessage.includes("No prescribers found")) { 
-      // If allPrescribers is empty but it wasn't a "No prescribers found" message, it implies it was an error.
-      // Don't modify error messages with filter status.
-      // setSearchMessage(currentBaseMessage); // Already set by handleSearch
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedPrescribers, confidenceFilter, allPrescribers]); // Removed isLoading and searchMessage from deps to avoid loops, ensure searchMessage is set correctly after API call
+  }, [displayedPrescribers, confidenceFilter, allPrescribers]);
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -193,26 +183,25 @@ export default function FinderPage() {
     setIsLoading(true);
     setAllPrescribers([]);
     setDisplayedPrescribers([]);
-    setSearchMessage(null); // Clear previous message
+    setSearchMessage(null);
 
     const inputForAction = {
-      medicationName: medicationNamesInput, // Send the comma-separated string to the action
+      medicationName: medicationNamesInput,
       zipcode,
       searchRadius: Number(searchRadius)
     };
 
-    // This type matches the expected return from `findPrescribersAction`
     const response: PrescriberSearchActionOutput = await findPrescribersAction(inputForAction);
 
     setIsLoading(false);
-    setSearchMessage(response.message || null); // Set the base message from API first
+    setSearchMessage(response.message || null);
 
     if (response.results && response.results.length > 0) {
-      setAllPrescribers(response.results); // This will trigger the filtering useEffect
+      setAllPrescribers(response.results);
     } else {
       setAllPrescribers([]);
       setDisplayedPrescribers([]);
-       if (response.message) { // Message already set above
+       if (response.message) {
          toast({
             title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") || response.message.startsWith("An unexpected error occurred") ? 'Search Error' : 'No Results',
             description: response.message,
@@ -228,18 +217,27 @@ export default function FinderPage() {
     }
   };
 
-  const isPrescriberInShortlist = (prescriber: PrescriberResult) => {
-    return shortlist.some(item => item.prescriberName === prescriber.prescriberName && item.address === prescriber.address && JSON.stringify(item.matchedMedications) === JSON.stringify(prescriber.matchedMedications));
+  const isPrescriberInShortlist = (prescriberNpi: string) => {
+    return shortlist.some(item => item.npi === prescriberNpi);
   };
 
   const toggleShortlist = (prescriber: PrescriberResult) => {
-    if (isPrescriberInShortlist(prescriber)) {
-      setShortlist(prev => prev.filter(item => !(item.prescriberName === prescriber.prescriberName && item.address === prescriber.address && JSON.stringify(item.matchedMedications) === JSON.stringify(prescriber.matchedMedications))));
+    if (isPrescriberInShortlist(prescriber.npi)) {
+      setShortlist(prev => prev.filter(item => item.npi !== prescriber.npi));
       toast({ title: "Removed from Shortlist", description: `${prescriber.prescriberName} removed.` });
     } else {
-      setShortlist(prev => [...prev, prescriber]);
+      // Add with empty notes initially
+      setShortlist(prev => [...prev, { ...prescriber, notes: '' }]);
       toast({ title: "Added to Shortlist", description: `${prescriber.prescriberName} added.` });
     }
+  };
+
+  const handleNoteChange = (npi: string, newNotes: string) => {
+    setShortlist(prevShortlist =>
+      prevShortlist.map(item =>
+        item.npi === npi ? { ...item, notes: newNotes } : item
+      )
+    );
   };
 
   const handlePrintShortlist = () => {
@@ -273,7 +271,6 @@ export default function FinderPage() {
                 value={medicationNamesInput}
                 onChange={(e) => setMedicationNamesInput(e.target.value)}
                 aria-label="Medication Names (comma-separated)"
-                
                 className="text-base md:text-sm"
               />
             </div>
@@ -294,7 +291,6 @@ export default function FinderPage() {
                   pattern="\d{5}"
                   title="Enter a 5-digit zipcode."
                   maxLength={5}
-                  
                   className="text-base md:text-sm"
                 />
               </div>
@@ -377,39 +373,39 @@ export default function FinderPage() {
           {displayedPrescribers.length > 0 && !isLoading && (
             <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner animate-in fade-in-50 duration-700 no-print-section">
               <div className="space-y-3 p-3">
-                {displayedPrescribers.map((prescriber, index) => (
-                  <Card key={index} className="shadow-md hover:shadow-lg transition-shadow bg-card relative">
+                {displayedPrescribers.map((prescriber) => (
+                  <Card key={prescriber.npi} className="shadow-md hover:shadow-lg transition-shadow bg-card relative">
                      <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => toggleShortlist(prescriber)}
-                        title={isPrescriberInShortlist(prescriber) ? 'Remove from Shortlist' : 'Add to Shortlist'}
+                        title={isPrescriberInShortlist(prescriber.npi) ? 'Remove from Shortlist' : 'Add to Shortlist'}
                         className="absolute top-3 right-3 text-muted-foreground hover:text-primary no-print-button"
-                        aria-label={isPrescriberInShortlist(prescriber) ? 'Remove from Shortlist' : 'Add to Shortlist'}
+                        aria-label={isPrescriberInShortlist(prescriber.npi) ? 'Remove from Shortlist' : 'Add to Shortlist'}
                       >
-                        <Bookmark className={`h-5 w-5 ${isPrescriberInShortlist(prescriber) ? 'text-primary fill-primary' : ''}`} />
+                        <Bookmark className={`h-5 w-5 ${isPrescriberInShortlist(prescriber.npi) ? 'text-primary fill-primary' : ''}`} />
                       </Button>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center justify-between pr-10">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl flex items-center justify-between pr-10">
                         <div className="flex items-center">
                           <BriefcaseMedical className="h-5 w-5 mr-2 text-primary flex-shrink-0" />
                           <span className="font-semibold">{prescriber.prescriberName}</span>
-                          {prescriber.credentials && <span className="ml-1.5 text-sm text-muted-foreground">({prescriber.credentials})</span>}
+                          {prescriber.credentials && <span className="ml-1.5 text-base text-muted-foreground">({prescriber.credentials})</span>}
                         </div>
                       </CardTitle>
                       {prescriber.specialization && (
-                        <CardDescription className="text-xs text-primary/80 -mt-1">
+                        <CardDescription className="text-sm text-primary/90">
                            Specialization: {prescriber.specialization}
                         </CardDescription>
                       )}
                        {prescriber.taxonomyClass && (
-                        <CardDescription className="text-xs text-primary/80">
-                           <Layers className="h-3 w-3 mr-1 inline-block relative -top-px" />
+                        <CardDescription className="text-sm text-muted-foreground">
+                           <Layers className="h-3.5 w-3.5 mr-1 inline-block relative -top-px text-primary/70" />
                            Taxonomy: {prescriber.taxonomyClass}
                         </CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent className="text-sm space-y-1.5 text-muted-foreground">
+                    <CardContent className="text-sm space-y-2 text-muted-foreground pt-0">
                       <p><strong>Address:</strong> {prescriber.address}, {prescriber.zipcode}</p>
                       {prescriber.phoneNumber && (
                         <p className="flex items-center">
@@ -453,8 +449,8 @@ export default function FinderPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {shortlist.map((prescriber, index) => (
-              <Card key={`shortlist-${index}`} className="p-4 shadow-sm bg-muted/30 shortlist-item-print relative">
+            {shortlist.map((prescriber) => (
+              <Card key={`shortlist-${prescriber.npi}`} className="p-4 shadow-sm bg-muted/30 shortlist-item-print relative">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -491,6 +487,13 @@ export default function FinderPage() {
                   <strong>Confidence:</strong>&nbsp;{prescriber.confidenceScore}%
                   <div className={`w-2.5 h-2.5 rounded-full ml-1.5 ${getConfidenceColor(prescriber.confidenceScore)}`}></div>
                 </div>
+                <Textarea
+                  value={prescriber.notes || ''}
+                  onChange={(e) => handleNoteChange(prescriber.npi, e.target.value)}
+                  placeholder="Add notes..."
+                  className="mt-2 text-xs shortlist-notes-print"
+                  rows={2}
+                />
               </Card>
             ))}
           </CardContent>
