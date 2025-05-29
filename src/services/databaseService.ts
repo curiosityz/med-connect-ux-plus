@@ -40,12 +40,11 @@ interface FindPrescribersParams {
 
 // Helper function to robustly parse a value to a number
 const valueAsNumber = (val: any): number | null => {
-    if (val === null || typeof val === 'undefined') return null; // handles null or undefined
+    if (val === null || typeof val === 'undefined') return null;
     if (typeof val === 'number') {
-        return Number.isNaN(val) ? null : val; // handles primitive numbers, including NaN
+        return Number.isNaN(val) ? null : val;
     }
-    // For strings or other types (like Decimal objects from some DB drivers that stringify to numbers)
-    const num = parseFloat(String(val)); // String(val) is key for objects
+    const num = parseFloat(String(val));
     return Number.isNaN(num) ? null : num;
 };
 
@@ -56,7 +55,6 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     return [];
   }
   if (!/^\d{5}$/.test(zipcode)) {
-    // This check is good, but the action layer also does it.
     throw new Error("Invalid zipcode format. Must be 5 digits.");
   }
 
@@ -64,7 +62,6 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
   try {
     await client.connect();
 
-    // 1. Get coordinates for the input zipcode
     const zipCoordQuery = 'SELECT latitude, longitude FROM public.npi_addresses_usps WHERE zip_code = $1 LIMIT 1';
     const zipCoordRes = await client.query(zipCoordQuery, [zipcode]);
 
@@ -80,18 +77,11 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
     const parsedInputZipLon = valueAsNumber(rawInputZipLon);
     
     if (parsedInputZipLat === null || parsedInputZipLon === null) {
-        console.error(
-            `Failed to parse coordinates for input zipcode ${zipcode}. ` +
-            `Raw Latitude: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Parsed Latitude: ${parsedInputZipLat}. ` +
-            `Raw Longitude: ${rawInputZipLon} (type: ${typeof rawInputZipLon}), Parsed Longitude: ${parsedInputZipLon}. ` +
-            `Please check the npi_addresses_usps table for valid numeric coordinates.`
-        );
-        throw new Error(
-            `Location data for zipcode ${zipcode} is invalid or non-numeric. Ensure latitude and longitude are valid numbers in the npi_addresses_usps table.`
-        );
+        const errorMessage = `Location data for zipcode ${zipcode} is invalid or non-numeric. Ensure latitude and longitude are valid numbers in the npi_addresses_usps table. Raw Latitude: ${rawInputZipLat} (type: ${typeof rawInputZipLat}), Parsed Latitude: ${parsedInputZipLat}. Raw Longitude: ${rawInputZipLon} (type: ${typeof rawInputZipLon}), Parsed Longitude: ${parsedInputZipLon}.`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
     }
 
-    // 2. Main query to find prescribers, calling the public.calculate_distance SQL function
     const query = `
       SELECT
         nd.npi,
@@ -124,7 +114,24 @@ export async function findPrescribersInDB({ medicationName, zipcode, searchRadiu
         public.npi_addresses_usps prescriber_geo ON SUBSTRING(na.provider_business_practice_location_address_postal_code FROM 1 FOR 5) = prescriber_geo.zip_code
       WHERE
         (np.drug_name ILIKE $1 OR np.generic_name ILIKE $1)
-        AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL 
+        AND prescriber_geo.latitude IS NOT NULL AND prescriber_geo.longitude IS NOT NULL
+      GROUP BY
+        nd.npi,
+        nd.provider_first_name,
+        nd.provider_last_name_legal_name,
+        na.provider_first_line_business_practice_location_address,
+        na.provider_second_line_business_practice_location_address,
+        na.provider_business_practice_location_address_city_name,
+        na.provider_business_practice_location_address_state_name,
+        SUBSTRING(na.provider_business_practice_location_address_postal_code FROM 1 FOR 5),
+        COALESCE(np.drug_name, np.generic_name),
+        np.total_claim_count,
+        nd.provider_credential_text,
+        nd.healthcare_provider_taxonomy_1_specialization,
+        nd.healthcare_provider_taxonomy_1_classification,
+        na.provider_business_practice_location_address_telephone_number,
+        prescriber_geo.latitude, 
+        prescriber_geo.longitude
       HAVING
         public.calculate_distance($2, $3, prescriber_geo.latitude, prescriber_geo.longitude, 'miles') <= $4
       ORDER BY
