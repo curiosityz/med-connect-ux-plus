@@ -11,7 +11,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare, Layers } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
-import type { PrescriberSearchInput as FlowInputType } from '@/ai/flows/prescriber-search-flow';
+// PrescriberSearchActionOutput is the type for data returned by the server action
+import type { PrescriberSearchActionOutput } from '../actions';
+
 
 interface PrescriberResult {
   prescriberName: string;
@@ -26,10 +28,9 @@ interface PrescriberResult {
   distance?: number;
 }
 
-interface PrescriberSearchActionOutput {
-  results: PrescriberResult[];
-  message?: string;
-}
+// This local type should align with the structure of `results` in `PrescriberSearchActionOutput`
+// It's essentially the same as `PrescriberResult` but good to be explicit if needed later.
+// For now, PrescriberResult is sufficient.
 
 const searchRadiusOptions = [
   { value: '5', label: '5 miles' },
@@ -121,41 +122,61 @@ export default function FinderPage() {
   }, [allPrescribers, confidenceFilter]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !searchMessage) return; // Don't update message if loading or no initial message
 
-    let currentMessage = searchMessage; 
+    let currentBaseMessage = searchMessage.split(" Displaying")[0].split(" All match")[0];
+    
+    // Prevent message update if it's a critical error message that shouldn't be changed by filtering
+    const criticalErrorMessages = ["Flow Error:", "Database query failed", "Could not find location data for zipcode", "An unexpected error occurred"];
+    if (criticalErrorMessages.some(err => currentBaseMessage.startsWith(err))) {
+        // setSearchMessage(currentBaseMessage); // Ensure it stays as the critical error
+        return;
+    }
 
-    if (currentMessage && !currentMessage.startsWith("Flow Error:") && !currentMessage.startsWith("Database query failed") && !currentMessage.startsWith("Could not find location data for zipcode")) {
-        let baseMessage = currentMessage.split(" Displaying")[0].split(" All match")[0];
 
-        if (baseMessage.includes("Found 0 prescriber(s)") || baseMessage.includes("No prescribers found")) {
-            setSearchMessage(baseMessage);
-        } else if (allPrescribers.length > 0) {
-            if (confidenceFilter !== 'any') {
-                if (allPrescribers.length === displayedPrescribers.length && displayedPrescribers.length > 0) {
-                    setSearchMessage(`${baseMessage} All match current confidence filter.`);
-                } else {
-                    setSearchMessage(`${baseMessage} Displaying ${displayedPrescribers.length} of ${allPrescribers.length} after filtering by confidence.`);
-                }
+    if (currentBaseMessage.includes("No prescribers found")) {
+        // If the base message is "No prescribers found", don't append filter info
+        // setSearchMessage(currentBaseMessage); // Already set by handleSearch
+    } else if (allPrescribers.length > 0) {
+        if (confidenceFilter !== 'any') {
+            if (displayedPrescribers.length === 0) {
+                 setSearchMessage(`${currentBaseMessage} No results match the current confidence filter.`);
+            } else if (allPrescribers.length === displayedPrescribers.length) {
+                setSearchMessage(`${currentBaseMessage} All match current confidence filter.`);
             } else {
-                 setSearchMessage(baseMessage);
+                setSearchMessage(`${currentBaseMessage} Displaying ${displayedPrescribers.length} of ${allPrescribers.length} after filtering by confidence.`);
             }
+        } else {
+             setSearchMessage(currentBaseMessage); // Revert to base if filter is 'any'
         }
+    } else if (!currentBaseMessage.includes("No prescribers found")) { 
+      // If allPrescribers is empty but it wasn't a "No prescribers found" message, it implies it was an error.
+      // Don't modify error messages with filter status.
+      // setSearchMessage(currentBaseMessage); // Already set by handleSearch
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allPrescribers, displayedPrescribers, confidenceFilter, isLoading]);
+  }, [displayedPrescribers, confidenceFilter, allPrescribers]); // Removed isLoading and searchMessage from deps to avoid loops, ensure searchMessage is set correctly after API call
 
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmedMedicationNames = medicationNamesInput.split(',')
+    
+    const parsedMedicationNames = medicationNamesInput.split(',')
                                       .map(name => name.trim())
                                       .filter(name => name.length > 0);
 
-    if (trimmedMedicationNames.length === 0 || !zipcode.trim()) {
+    if (parsedMedicationNames.length === 0) {
       toast({
-        title: 'Missing Information',
-        description: 'Please enter at least one medication name (or multiple, comma-separated), a 5-digit zipcode, and select a search radius.',
+        title: 'Missing Medication',
+        description: 'Please enter at least one medication name. For multiple, separate with commas.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!zipcode.trim()) {
+      toast({
+        title: 'Missing Zipcode',
+        description: 'Please enter a 5-digit zipcode.',
         variant: 'destructive',
       });
       return;
@@ -172,30 +193,30 @@ export default function FinderPage() {
     setIsLoading(true);
     setAllPrescribers([]);
     setDisplayedPrescribers([]);
-    setSearchMessage(null);
+    setSearchMessage(null); // Clear previous message
 
-    // The action will handle passing medicationNames as an array
     const inputForAction = {
       medicationName: medicationNamesInput, // Send the comma-separated string to the action
       zipcode,
       searchRadius: Number(searchRadius)
     };
 
+    // This type matches the expected return from `findPrescribersAction`
     const response: PrescriberSearchActionOutput = await findPrescribersAction(inputForAction);
 
     setIsLoading(false);
-    setSearchMessage(response.message || null);
+    setSearchMessage(response.message || null); // Set the base message from API first
 
     if (response.results && response.results.length > 0) {
-      setAllPrescribers(response.results);
+      setAllPrescribers(response.results); // This will trigger the filtering useEffect
     } else {
       setAllPrescribers([]);
       setDisplayedPrescribers([]);
-       if (response.message) {
+       if (response.message) { // Message already set above
          toast({
-            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") ? 'Search Error' : 'No Results',
+            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") || response.message.startsWith("An unexpected error occurred") ? 'Search Error' : 'No Results',
             description: response.message,
-            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") ? 'destructive' : 'default',
+            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") || response.message.startsWith("An unexpected error occurred") ? 'destructive' : 'default',
          });
        } else {
          toast({
@@ -208,7 +229,6 @@ export default function FinderPage() {
   };
 
   const isPrescriberInShortlist = (prescriber: PrescriberResult) => {
-    // Use a more robust check if medicationMatch can be an array
     return shortlist.some(item => item.prescriberName === prescriber.prescriberName && item.address === prescriber.address && JSON.stringify(item.matchedMedications) === JSON.stringify(prescriber.matchedMedications));
   };
 
@@ -253,7 +273,7 @@ export default function FinderPage() {
                 value={medicationNamesInput}
                 onChange={(e) => setMedicationNamesInput(e.target.value)}
                 aria-label="Medication Names (comma-separated)"
-                required
+                
                 className="text-base md:text-sm"
               />
             </div>
@@ -274,7 +294,7 @@ export default function FinderPage() {
                   pattern="\d{5}"
                   title="Enter a 5-digit zipcode."
                   maxLength={5}
-                  required
+                  
                   className="text-base md:text-sm"
                 />
               </div>
@@ -337,7 +357,7 @@ export default function FinderPage() {
 
           {!isLoading && searchMessage && (
              <div className={`p-4 rounded-md text-sm flex items-start ${
-                searchMessage.includes("No prescribers found") || searchMessage.includes("Flow Error:") || searchMessage.includes("Database query failed") || searchMessage.includes("Could not find location data for zipcode")
+                searchMessage.includes("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query failed") || searchMessage.startsWith("Could not find location data for zipcode") || searchMessage.startsWith("An unexpected error occurred")
                 ? 'bg-destructive/10 text-destructive border border-destructive/20'
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
@@ -346,7 +366,7 @@ export default function FinderPage() {
             </div>
           )}
 
-          {!isLoading && displayedPrescribers.length === 0 && allPrescribers.length > 0 && !searchMessage?.includes("No prescribers found") && (
+          {!isLoading && displayedPrescribers.length === 0 && allPrescribers.length > 0 && !searchMessage?.includes("No prescribers found") && !searchMessage?.startsWith("Flow Error:") && (
              <div className="p-4 rounded-md text-sm flex items-start bg-blue-50 text-blue-700 border border-blue-200">
                 <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
                 <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter.</p>
@@ -479,5 +499,3 @@ export default function FinderPage() {
     </main>
   );
 }
-
-    
