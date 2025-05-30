@@ -1,10 +1,12 @@
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap } from "lucide-react";
+import { CheckCircle, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function PricingPage() {
+  const jotformUrl = "https://form.jotform.com/251497126918062";
+
   return (
     <div className="container mx-auto py-12 md:py-20 px-4">
       <div className="text-center mb-12 md:mb-16">
@@ -56,15 +58,20 @@ export default function PricingPage() {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button size="lg" className="w-full text-lg py-7" disabled>
-              Purchase with Stripe (Coming Soon)
-            </Button>
+            <Link href={jotformUrl} passHref legacyBehavior>
+              <a target="_blank" rel="noopener noreferrer" className="w-full">
+                <Button size="lg" className="w-full text-lg py-7">
+                  Get Lifetime Access
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </a>
+            </Link>
           </CardFooter>
         </Card>
       </div>
 
       <p className="text-center text-muted-foreground mt-12 text-sm">
-        Payment processing will be handled securely via Stripe.
+        Payment processing will be handled securely.
         <br />
         For any questions, please <Link href="/contact" className="text-primary hover:underline">contact us</Link>.
         {/* Note: You'll need to create a /contact page if you keep this link. */}
@@ -72,3 +79,4 @@ export default function PricingPage() {
     </div>
   );
 }
+
