@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap } from "lucide-react";
+import { CheckCircle, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -24,6 +24,7 @@ const createOrder = (amount: string, description: string) => async () => {
 };
 
 export default function PricingPage() {
+
   const { isSignedIn, user } = useUser();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -159,5 +160,7 @@ export default function PricingPage() {
         </p>
       </div>
     </PayPalScriptProvider>
+
   );
 }
+
