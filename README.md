@@ -10,9 +10,8 @@ To get started, take a look at src/app/page.tsx.
 Add the following to your `.env` file:
 ```
 PAYPAL_CLIENT_ID=your-paypal-client-id
-PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_SECRET=your-paypal-client-secret
 PAYPAL_WEBHOOK_ID=your-paypal-webhook-id
-WEBHOOKS_PAYPAL_PAYMENT_COMPLETED=https://yourdomain.com/api/paypal/webhook
 ```
 
 ### Payment Flow

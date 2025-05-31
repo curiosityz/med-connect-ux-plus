@@ -24,9 +24,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('PayPal webhook ID not configured');
     }
 
-    // For now, we'll trust the webhook event since we're in sandbox mode
-    // In production, you should implement proper webhook signature verification
-    // using PayPal's REST API or a third-party library
+    // For sandbox mode, we'll trust the webhook event
+    // In production, implement proper webhook signature verification
+    // using PayPal's REST API: https://developer.paypal.com/api/rest/webhooks/event-notification/
     const event = req.body;
     const eventType = event.event_type;
     const resource = event.resource;
