@@ -26,6 +26,7 @@ const createOrder = (amount: string, description: string) => async () => {
 };
 
 export default function PricingPage() {
+
   const { isSignedIn, user } = useUser();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -161,5 +162,7 @@ export default function PricingPage() {
         </p>
       </div>
     </PayPalScriptProvider>
+
   );
 }
+
