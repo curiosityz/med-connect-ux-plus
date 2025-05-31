@@ -1,5 +1,4 @@
-
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { authMiddleware } from "@clerk/nextjs";
 
 // Define routes that should be publicly accessible.
 // Clerk will automatically make sub-paths of these public as well (e.g., /sign-in/xyz).
@@ -13,13 +12,13 @@ const publicRoutes = [
   // If you have other public pages add them here.
 ];
 
-export default clerkMiddleware({
-  publicRoutes: publicRoutes,
+export default authMiddleware({
+  publicRoutes: publicRoutes
 });
 
 export const config = {
   // This matcher ensures the middleware runs on all relevant paths,
   // excluding static files (_next/static, _next/image, favicon.ico)
   // and API routes if they are handled differently or don't need Clerk auth.
-  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
 };
