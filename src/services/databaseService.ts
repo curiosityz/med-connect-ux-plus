@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Client, type QueryResultRow } from 'pg';
@@ -234,5 +233,47 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
     if (client) {
       await client.end();
     }
+  }
+}
+
+// Payment status types
+export type PaymentStatus = 'none' | 'pending' | 'completed' | 'failed';
+
+export interface UserPayment {
+  user_id: string;
+  plan: string;
+  status: PaymentStatus;
+  payment_id: string;
+  updated_at: Date;
+}
+
+// Store or update user payment status
+export async function upsertUserPayment({ user_id, plan, status, payment_id }: { user_id: string; plan: string; status: PaymentStatus; payment_id: string; }) {
+  const client = new Client(dbConfig);
+  try {
+    await client.connect();
+    await client.query(
+      `INSERT INTO user_payments (user_id, plan, status, payment_id, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET plan = $2, status = $3, payment_id = $4, updated_at = NOW()`,
+      [user_id, plan, status, payment_id]
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+// Retrieve user payment status
+export async function getUserPayment(user_id: string): Promise<UserPayment | null> {
+  const client = new Client(dbConfig);
+  try {
+    await client.connect();
+    const res = await client.query<UserPayment>(
+      'SELECT * FROM user_payments WHERE user_id = $1',
+      [user_id]
+    );
+    return res.rows[0] || null;
+  } finally {
+    await client.end();
   }
 }
