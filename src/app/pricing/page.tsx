@@ -4,12 +4,12 @@ import { CheckCircle, Zap } from "lucide-react";
 import Link from "next/link";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useUser } from "@clerk/nextjs";
-import { useState } from "react";
+import { usePayment } from "@/hooks/usePayment";
 import { toast } from "@/components/ui/use-toast";
 
 export default function PricingPage() {
   const { isSignedIn, user } = useUser();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { createOrder, handleApprove, isProcessing } = usePayment(user?.id);
 
   const initialOptions = {
     "client-id": process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
@@ -92,15 +92,7 @@ export default function PricingPage() {
               {isSignedIn ? (
                 <PayPalButtons
                   style={{ layout: "vertical", color: "blue", shape: "rect", label: "pay" }}
-                  createOrder={(data, actions) => {
-                    return actions.order.create({
-                      purchase_units: [{
-                        amount: { value: "19.95" },
-                        description: "Basic Plan",
-                        custom_id: user?.id,
-                      }],
-                    });
-                  }}
+                  createOrder={createOrder("19.95", "Basic Plan")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Basic")}
                   disabled={isProcessing}
                 />
@@ -110,7 +102,13 @@ export default function PricingPage() {
                 </Button>
               )}
             </CardFooter>
-          </Card>
+                  onInit={(data, actions) => {
+                    if (isProcessing) {
+                      actions.disable();
+                    } else {
+                      actions.enable();
+                    }
+                  }}
 
           {/* Complete Access Plan */}
           <Card className="w-full max-w-md shadow-xl transform hover:scale-105 transition-transform duration-300 bg-card border-primary">
@@ -140,15 +138,7 @@ export default function PricingPage() {
               {isSignedIn ? (
                 <PayPalButtons
                   style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
-                  createOrder={(data, actions) => {
-                    return actions.order.create({
-                      purchase_units: [{
-                        amount: { value: "49.99" },
-                        description: "Complete Access Plan",
-                        custom_id: user?.id,
-                      }],
-                    });
-                  }}
+                  createOrder={createOrder("49.99", "Complete Access Plan")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Complete Access")}
                   disabled={isProcessing}
                 />
