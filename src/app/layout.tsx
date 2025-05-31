@@ -1,8 +1,6 @@
-
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
 import {
   ClerkProvider,
   SignInButton,
@@ -13,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { BriefcaseMedical, LogIn, UserPlus, SearchCode, DollarSign } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 
 
 const geistSans = Geist({
@@ -88,7 +87,7 @@ export default function RootLayout({
             <main className="flex-1">
               {children}
             </main>
-            <Toaster />
+            <Toaster position="top-center" />
             <footer className="py-8 border-t bg-secondary/50">
               <div className="container text-center text-sm text-muted-foreground">
                 © {new Date().getFullYear()} RX Prescribers. All rights reserved.

@@ -2,17 +2,33 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Zap } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useUser } from "@clerk/nextjs";
-import { usePayment } from "@/hooks/usePayment";
-import { toast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
+// Define createOrder function
+const createOrder = (amount: string, description: string) => async () => {
+  const response = await fetch('/api/paypal/create-order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amount,
+      description,
+    }),
+  });
+  const order = await response.json();
+  return order.id;
+};
 
 export default function PricingPage() {
   const { isSignedIn, user } = useUser();
-  const { createOrder, handleApprove, isProcessing } = usePayment(user?.id);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const initialOptions = {
-    "client-id": process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
+    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
     currency: "USD",
   };
 
@@ -38,20 +54,13 @@ export default function PricingPage() {
       const result = await response.json();
 
       if (response.ok) {
-        toast({
-          title: "Payment Successful!",
-          description: `Thank you for purchasing the ${plan} plan.`,
-        });
+        toast.success(`Thank you for purchasing the ${plan} plan!`);
       } else {
         throw new Error(result.error || 'Payment verification failed');
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast({
-        title: "Payment Error",
-        description: error instanceof Error ? error.message : "Failed to process payment",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to process payment");
     } finally {
       setIsProcessing(false);
     }
@@ -102,13 +111,7 @@ export default function PricingPage() {
                 </Button>
               )}
             </CardFooter>
-                  onInit={(data, actions) => {
-                    if (isProcessing) {
-                      actions.disable();
-                    } else {
-                      actions.enable();
-                    }
-                  }}
+          </Card>
 
           {/* Complete Access Plan */}
           <Card className="w-full max-w-md shadow-xl transform hover:scale-105 transition-transform duration-300 bg-card border-primary">
