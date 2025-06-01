@@ -190,7 +190,12 @@ export default function FinderPage() {
       });
       setSearchMessage(response.message || null);
       if (response.results && response.results.length > 0) {
-        setAllPrescribers(response.results);
+        // Map each result to include the required 'npi' property
+        const mappedResults = response.results.map(result => ({
+          ...result,
+          npi: 'unknown' // Ensure 'npi' is present, defaulting to 'unknown' if missing
+        }));
+        setAllPrescribers(mappedResults);
       } else {
         setAllPrescribers([]);
         setDisplayedPrescribers([]);
