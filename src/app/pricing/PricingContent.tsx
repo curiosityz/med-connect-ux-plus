@@ -11,8 +11,8 @@ import { useUser } from "@clerk/nextjs";
 import toast from "react-hot-toast";
 
 // Define createOrder function with enhanced error handling
-const createOrder = (amount: string, description: string) => async () => {
-  console.log('Attempting to create PayPal order with amount:', amount, 'description:', description);
+const createOrder = (amount: string, description: string, planType: string) => async () => {
+  console.log('Attempting to create PayPal order with amount:', amount, 'description:', description, 'planType:', planType);
   try {
     const response = await fetch('/api/paypal/create-order', {
       method: 'POST',
@@ -22,6 +22,7 @@ const createOrder = (amount: string, description: string) => async () => {
       body: JSON.stringify({
         amount,
         description,
+        planType,
       }),
     });
 
@@ -143,7 +144,7 @@ export default function PricingContent() {
               {isSignedIn ? (
                 <PayPalButtons
                   style={{ layout: "vertical", color: "blue", shape: "rect", label: "pay" }}
-                  createOrder={createOrder("19.95", "Basic Plan")}
+                  createOrder={createOrder("19.95", "Basic Plan", "Basic")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Basic")}
                   onError={handleError}
                   disabled={isProcessing}
@@ -184,7 +185,7 @@ export default function PricingContent() {
               {isSignedIn ? (
                 <PayPalButtons
                   style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
-                  createOrder={createOrder("49.99", "Complete Access Plan")}
+                  createOrder={createOrder("49.99", "Complete Access Plan", "Complete Access")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Complete Access")}
                   onError={handleError}
                   disabled={isProcessing}
