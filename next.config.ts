@@ -37,10 +37,8 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-  // Experimental features for better compatibility
-  experimental: {
-    serverComponentsExternalPackages: ['@genkit-ai/core', 'genkit'],
-  },
+  // Moved from experimental to top level
+  serverExternalPackages: ['@genkit-ai/core', 'genkit'],
 };
 
 export default nextConfig;
