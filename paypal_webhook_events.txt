@@ -1,0 +1,19 @@
+Webhook Events to subscribe to in your PayPal Developer Dashboard:
+
+1. PAYMENT.CAPTURE.COMPLETED
+   - Triggered when a payment capture initiated by your application is successfully completed.
+   - Your webhook endpoint at https://rxprescribers.com/api/paypal/webhook uses this to finalize the user's purchase, update their payment status to 'completed' in the database, and update their Clerk publicMetadata with plan details.
+
+2. PAYMENT.CAPTURE.DENIED
+   - Triggered when a payment capture is denied by PayPal (e.g., due to risk assessment, regulatory reasons).
+   - Your webhook endpoint at https://rxprescribers.com/api/paypal/webhook uses this to record the payment attempt as 'denied' in the database and potentially update Clerk publicMetadata to reflect the failed payment attempt.
+
+3. PAYMENT.CAPTURE.DECLINED
+   - Triggered when a payment capture is declined by the processor or customer's bank.
+   - Your webhook endpoint at https://rxprescribers.com/api/paypal/webhook handles this similarly to DENIED, marking the payment as 'declined' and updating records accordingly.
+
+4. PAYMENT.CAPTURE.FAILED
+   - A general event for when a payment capture fails for other reasons.
+   - Your webhook endpoint at https://rxprescribers.com/api/paypal/webhook also processes this to mark the payment as 'failed'.
+
+When setting up your webhook in PayPal, you will typically be presented with a list of available event types, and you should select these specific event names. 

@@ -1,0 +1,81 @@
+{
+    "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v10/terminal-keeper.json",
+    "theme": "monokai",
+    "active": "development",
+    "activateOnStartup": true,
+    "keepExistingTerminals": true,
+    "sessions": {
+        "development": [
+            {
+                "name": "🚀 Server",
+                "autoExecuteCommands": true,
+                "icon": "server",
+                "color": "terminal.ansiBlue",
+                "commands": [
+                    "npm run dev"
+                ]
+            },
+            [
+                {
+                    "name": "🐳 Docker: Infrastructure",
+                    "autoExecuteCommands": true,
+                    "icon": "docker",
+                    "color": "terminal.ansiCyan",
+                    "commands": [
+                        "docker-compose up -d"
+                    ]
+                },
+                {
+                    "name": "📊 Monitoring",
+                    "autoExecuteCommands": true,
+                    "icon": "pulse",
+                    "color": "terminal.ansiYellow",
+                    "commands": [
+                        "npm run monitor"
+                    ]
+                }
+            ],
+            [
+                {
+                    "name": "🧪 Tests",
+                    "autoExecuteCommands": false,
+                    "icon": "beaker",
+                    "color": "terminal.ansiMagenta",
+                    "commands": [
+                        "npm test"
+                    ]
+                },
+                {
+                    "name": "💳 PayPal Webhook",
+                    "autoExecuteCommands": false,
+                    "icon": "credit-card",
+                    "color": "terminal.ansiGreen",
+                    "commands": [
+                        "npm run webhook:paypal"
+                    ]
+                }
+            ]
+        ],
+        "deployment": [
+            {
+                "name": "🚢 Deploy",
+                "autoExecuteCommands": false,
+                "icon": "rocket",
+                "color": "terminal.ansiRed",
+                "commands": [
+                    "npm run build",
+                    "npm run deploy"
+                ]
+            },
+            {
+                "name": "🔍 Logs",
+                "autoExecuteCommands": false,
+                "icon": "eye",
+                "color": "terminal.ansiBlue",
+                "commands": [
+                    "npm run logs"
+                ]
+            }
+        ]
+    }
+}

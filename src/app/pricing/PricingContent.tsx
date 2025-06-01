@@ -10,20 +10,49 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useUser } from "@clerk/nextjs";
 import toast from "react-hot-toast";
 
-// Define createOrder function
+// Define createOrder function with enhanced error handling
 const createOrder = (amount: string, description: string) => async () => {
-  const response = await fetch('/api/paypal/create-order', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      amount,
-      description,
-    }),
-  });
-  const order = await response.json();
-  return order.id;
+  console.log('Attempting to create PayPal order with amount:', amount, 'description:', description);
+  try {
+    const response = await fetch('/api/paypal/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        description,
+      }),
+    });
+
+    console.log('Create order API response status:', response.status);
+    const responseBody = await response.json();
+    console.log('Create order API response body:', responseBody);
+
+    if (!response.ok) {
+      const errorMsg = responseBody.error || `API Error: ${response.status}`;
+      console.error('Failed to create order (API error):', errorMsg, responseBody);
+      toast.error(`Could not initiate PayPal payment: ${errorMsg}`);
+      throw new Error(errorMsg); // This will be caught by PayPal SDK and can be handled in onError
+    }
+
+    if (!responseBody.id) {
+      console.error('Failed to create order: No order ID received from API.', responseBody);
+      toast.error('Could not initiate PayPal payment: Invalid order data received.');
+      throw new Error('Invalid order data received from API.');
+    }
+
+    console.log('PayPal Order ID created successfully:', responseBody.id);
+    return responseBody.id;
+  } catch (error) {
+    console.error('Error in createOrder function:', error);
+    // If toast was already shown for API error, this might be redundant but good for other errors
+    if (!(error instanceof Error && error.message.startsWith('API Error:')) && 
+        !(error instanceof Error && error.message.startsWith('Invalid order data'))) {
+      toast.error('An unexpected error occurred while setting up PayPal.');
+    }
+    throw error; // Re-throw to be caught by PayPal SDK if needed
+  }
 };
 
 export default function PricingContent() {
@@ -33,16 +62,20 @@ export default function PricingContent() {
   const initialOptions = {
     clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
     currency: "USD",
+    // Enable logging for the PayPal SDK for more detailed client-side logs from PayPal
+    // "data-sdk-integration-source": "developer-studio", // Optional: for PayPal analytics
+    // "enable-funding": "venmo,card" // Example: to enable Venmo and card payments
+    // "disable-funding": "credit,card" // Example: to disable credit and card payments
+    // For more advanced options, refer to PayPal JS SDK documentation
   };
 
   const handleApprove = async (data: any, actions: any, plan: string) => {
     try {
       setIsProcessing(true);
-      
-      // Capture the payment
+      console.log('Payment approved by PayPal. Data:', data);
       const details = await actions.order.capture();
-      
-      // Verify payment on backend
+      console.log('Payment captured. Details:', details);
+
       const response = await fetch('/api/paypal/verify', {
         method: 'POST',
         headers: {
@@ -53,20 +86,26 @@ export default function PricingContent() {
           planType: plan,
         }),
       });
-
       const result = await response.json();
-
       if (response.ok) {
         toast.success(`Thank you for purchasing the ${plan} plan!`);
+        // Potentially redirect or update UI state here
       } else {
         throw new Error(result.error || 'Payment verification failed');
       }
     } catch (error) {
-      console.error('Payment error:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to process payment");
+      console.error('Error in handleApprove:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to process payment after approval.");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleError = (err: any) => {
+    console.error('PayPal Button SDK Error:', err);
+    toast.error('PayPal encountered an error. Please try again or contact support.');
+    // Potentially reset some state or log more detailed error info
+    setIsProcessing(false); // Ensure processing state is reset
   };
 
   return (
@@ -106,6 +145,7 @@ export default function PricingContent() {
                   style={{ layout: "vertical", color: "blue", shape: "rect", label: "pay" }}
                   createOrder={createOrder("19.95", "Basic Plan")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Basic")}
+                  onError={handleError}
                   disabled={isProcessing}
                 />
               ) : (
@@ -146,6 +186,7 @@ export default function PricingContent() {
                   style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
                   createOrder={createOrder("49.99", "Complete Access Plan")}
                   onApprove={(data, actions) => handleApprove(data, actions, "Complete Access")}
+                  onError={handleError}
                   disabled={isProcessing}
                 />
               ) : (

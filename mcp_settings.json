@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "paypal": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@paypal/mcp",
+        "--tools=all"
+      ],
+      "env": {
+        "PAYPAL_ACCESS_TOKEN": "A21AAO94uX6mjBa1lUcE2aP4IJ1UwUPNP694aGypZLN-QLK7Y3kv8eExBTNu8EKvcb93NBcrg3ApO8S9h6XGQTkY92PErhTyw",
+        "PAYPAL_ENVIRONMENT": "PRODUCTION"
+      }
+    }
+  }
+}

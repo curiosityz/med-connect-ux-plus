@@ -10,6 +10,7 @@ const publicRoutes = [
   '/privacy', // Privacy page
   '/sign-in(.*)', // Sign-in and its sub-routes
   '/sign-up(.*)', // Sign-up and its sub-routes
+  '/api/paypal/webhook', // PayPal webhook endpoint (needs to be accessible by PayPal)
   // If you have other public pages add them here.
 ];
 

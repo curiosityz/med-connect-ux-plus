@@ -1,0 +1,15 @@
+{
+  "name": "paypal-webhook-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for managing PayPal webhooks",
+  "main": "create-paypal-webhook.js",
+  "scripts": {
+    "create-webhook": "node create-paypal-webhook.js",
+    "test-webhook": "node test-paypal-webhook.js",
+    "manage-webhooks": "node manage-paypal-webhooks.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "node-fetch": "^2.6.9"
+  }
+}

@@ -1,28 +1,28 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextResponse, NextRequest } from 'next/server';
 import { getAuth } from '@clerk/nextjs/server';
 import checkoutNodeJssdk from '@paypal/checkout-server-sdk';
 
 // Configure PayPal environment
-const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
+const environment = new checkoutNodeJssdk.core.LiveEnvironment(
   process.env.PAYPAL_CLIENT_ID!,
   process.env.PAYPAL_SECRET!
 );
 const client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+export async function POST(req: NextRequest) {
+  if (req.method !== 'POST') { // This check is somewhat redundant with named export but good for clarity
+    return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
   try {
     const { userId } = getAuth(req);
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { amount, description } = req.body;
+    const { amount, description } = await req.json();
     if (!amount || !description) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Create the order
@@ -36,17 +36,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           value: amount
         },
         description: description,
-        custom_id: userId
+        custom_id: userId 
       }]
     });
 
     const order = await client.execute(request);
-    return res.status(200).json(order.result);
+    return NextResponse.json(order.result, { status: 200 });
   } catch (error) {
     console.error('Order creation error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to create order',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return NextResponse.json(
+      { 
+        error: 'Failed to create order',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, 
+      { status: 500 }
+    );
   }
 } 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -8,15 +7,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Pill, MapPin, Search, Loader2, AlertCircle, BriefcaseMedical, Filter, Bookmark, Printer, Trash2, Phone, TrendingUp, Pin, SigmaSquare, Layers } from 'lucide-react';
 import { findPrescribersAction } from '../actions';
 import type { PrescriberSearchActionOutput } from '../actions';
-
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 interface PrescriberResult {
-  npi: string; // NPI for unique identification
+  npi: string;
   prescriberName: string;
   credentials?: string;
   specialization?: string;
@@ -27,7 +27,7 @@ interface PrescriberResult {
   matchedMedications: string[];
   confidenceScore: number;
   distance?: number;
-  notes?: string; // For shortlist notes
+  notes?: string;
 }
 
 const searchRadiusOptions = [
@@ -67,31 +67,53 @@ const formatPhoneNumber = (phoneNumberString?: string): string | undefined => {
   return phoneNumberString;
 };
 
+// Helper function to get confidence color, moved outside the main component for clarity
+const getConfidenceColor = (score: number) => {
+  if (score >= 70) return 'bg-green-500';
+  if (score >= 30) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
 export default function FinderPage() {
+  const { user, isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  // --- Authentication and Authorization Check --- 
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in?redirect_url=/finder');
+      return;
+    }
+    if (isLoaded && isSignedIn) {
+      const paymentPlan = user?.publicMetadata?.paymentPlan as string | undefined;
+      if (!paymentPlan) {
+        toast({
+          title: "Access Denied",
+          description: "A payment plan is required. Redirecting to pricing...",
+          variant: "destructive",
+        });
+        router.push('/pricing');
+      }
+    }
+  }, [isLoaded, isSignedIn, user, router, toast]);
+
+  // --- States for Search Functionality (conditionally initialized) --- 
   const [medicationNamesInput, setMedicationNamesInput] = useState('');
   const [zipcode, setZipcode] = useState('');
   const [searchRadius, setSearchRadius] = useState<number>(parseInt(searchRadiusOptions[1].value));
   const [confidenceFilter, setConfidenceFilter] = useState<string>('any');
-
   const [allPrescribers, setAllPrescribers] = useState<PrescriberResult[]>([]);
   const [displayedPrescribers, setDisplayedPrescribers] = useState<PrescriberResult[]>([]);
   const [shortlist, setShortlist] = useState<PrescriberResult[]>([]);
-
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false); // Renamed from isLoading to avoid conflict
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [currentLoadingPhrase, setCurrentLoadingPhrase] = useState(loadingPhrases[0]);
 
-  const { toast } = useToast();
-
-  const getConfidenceColor = (score: number) => {
-    if (score >= 70) return 'bg-green-500';
-    if (score >= 30) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
+  // --- useEffects for Search Functionality --- 
   useEffect(() => {
     let phraseInterval: NodeJS.Timeout;
-    if (isLoading) {
+    if (isLoadingSearch) {
       let currentIndex = 0;
       setCurrentLoadingPhrase(loadingPhrases[currentIndex]);
       phraseInterval = setInterval(() => {
@@ -104,7 +126,7 @@ export default function FinderPage() {
         clearInterval(phraseInterval);
       }
     };
-  }, [isLoading]);
+  }, [isLoadingSearch]);
 
   useEffect(() => {
     let filtered = allPrescribers;
@@ -120,15 +142,12 @@ export default function FinderPage() {
   }, [allPrescribers, confidenceFilter]);
 
   useEffect(() => {
-    if (isLoading || !searchMessage) return;
-
+    if (isLoadingSearch || !searchMessage) return;
     let currentBaseMessage = searchMessage.split(" Displaying")[0].split(" All match")[0];
-    
     const criticalErrorMessages = ["Flow Error:", "Database query failed", "Could not find location data for zipcode", "An unexpected error occurred"];
     if (criticalErrorMessages.some(err => currentBaseMessage.startsWith(err))) {
         return;
     }
-
     if (currentBaseMessage.includes("No prescribers found")) {
       // Message already set by handleSearch
     } else if (allPrescribers.length > 0) {
@@ -145,105 +164,101 @@ export default function FinderPage() {
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedPrescribers, confidenceFilter, allPrescribers]);
+  }, [displayedPrescribers, confidenceFilter, allPrescribers, searchMessage]); // Added searchMessage
 
-
+  // --- Event Handlers for Search --- 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
-    const parsedMedicationNames = medicationNamesInput.split(',')
-                                      .map(name => name.trim())
-                                      .filter(name => name.length > 0);
-
+    const parsedMedicationNames = medicationNamesInput.split(',').map(name => name.trim()).filter(name => name.length > 0);
     if (parsedMedicationNames.length === 0) {
-      toast({
-        title: 'Missing Medication',
-        description: 'Please enter at least one medication name. For multiple, separate with commas.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Missing Medication', description: 'Please enter at least one medication name.', variant: 'destructive' });
       return;
     }
-    if (!zipcode.trim()) {
-      toast({
-        title: 'Missing Zipcode',
-        description: 'Please enter a 5-digit zipcode.',
-        variant: 'destructive',
-      });
+    if (!zipcode.trim() || zipcode.trim().length !== 5 || !/^\d{5}$/.test(zipcode.trim())) {
+      toast({ title: 'Invalid Zipcode', description: 'Please enter a valid 5-digit zipcode.', variant: 'destructive' });
       return;
     }
-    if (zipcode.trim().length !== 5 || !/^\d{5}$/.test(zipcode.trim())) {
-      toast({
-        title: 'Invalid Zipcode',
-        description: 'Please enter a valid 5-digit zipcode.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
+    setIsLoadingSearch(true);
     setAllPrescribers([]);
     setDisplayedPrescribers([]);
     setSearchMessage(null);
-
-    const inputForAction = {
-      medicationName: medicationNamesInput,
-      zipcode,
-      searchRadius: Number(searchRadius)
-    };
-
-    const response: PrescriberSearchActionOutput = await findPrescribersAction(inputForAction);
-
-    setIsLoading(false);
-    setSearchMessage(response.message || null);
-
-    if (response.results && response.results.length > 0) {
-      setAllPrescribers(response.results);
-    } else {
+    try {
+      const response: PrescriberSearchActionOutput = await findPrescribersAction({
+        medicationName: medicationNamesInput, // Assuming your action takes medicationName as string
+        zipcode,
+        searchRadius: Number(searchRadius)
+      });
+      setSearchMessage(response.message || null);
+      if (response.results && response.results.length > 0) {
+        setAllPrescribers(response.results);
+      } else {
+        setAllPrescribers([]);
+        setDisplayedPrescribers([]);
+        if (response.message) {
+          toast({ title: response.message.startsWith("Flow Error:") ? 'Search Error' : 'No Results', description: response.message, variant: response.message.startsWith("Flow Error:") ? 'destructive' : 'default' });
+        } else {
+          toast({ title: 'No Results', description: 'No prescribers found matching your criteria.', variant: 'default' });
+        }
+      }
+    } catch (error) {
+      console.error("Search error in component:", error);
+      toast({ title: 'Search Failed', description: 'An unexpected error occurred during the search.', variant: 'destructive' });
+      setSearchMessage('An unexpected error occurred.');
       setAllPrescribers([]);
-      setDisplayedPrescribers([]);
-       if (response.message) {
-         toast({
-            title: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") || response.message.startsWith("An unexpected error occurred") ? 'Search Error' : 'No Results',
-            description: response.message,
-            variant: response.message.startsWith("Flow Error:") || response.message.startsWith("Database query failed") || response.message.startsWith("Could not find location data for zipcode") || response.message.startsWith("An unexpected error occurred") ? 'destructive' : 'default',
-         });
-       } else {
-         toast({
-            title: 'No Results',
-            description: 'No prescribers found matching your criteria.',
-            variant: 'default',
-         });
-       }
     }
+    setIsLoadingSearch(false);
   };
 
-  const isPrescriberInShortlist = (prescriberNpi: string) => {
-    return shortlist.some(item => item.npi === prescriberNpi);
-  };
+  const isPrescriberInShortlist = (prescriberNpi: string) => shortlist.some(item => item.npi === prescriberNpi);
 
   const toggleShortlist = (prescriber: PrescriberResult) => {
     if (isPrescriberInShortlist(prescriber.npi)) {
       setShortlist(prev => prev.filter(item => item.npi !== prescriber.npi));
       toast({ title: "Removed from Shortlist", description: `${prescriber.prescriberName} removed.` });
     } else {
-      // Add with empty notes initially
       setShortlist(prev => [...prev, { ...prescriber, notes: '' }]);
       toast({ title: "Added to Shortlist", description: `${prescriber.prescriberName} added.` });
     }
   };
 
   const handleNoteChange = (npi: string, newNotes: string) => {
-    setShortlist(prevShortlist =>
-      prevShortlist.map(item =>
-        item.npi === npi ? { ...item, notes: newNotes } : item
-      )
+    setShortlist(prevShortlist => prevShortlist.map(item => item.npi === npi ? { ...item, notes: newNotes } : item));
+  };
+
+  const handlePrintShortlist = () => window.print();
+
+  // --- Loading and Access Denied States --- 
+  if (!isLoaded) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin mb-4" />
+        <p>Loading user data...</p>
+      </div>
     );
-  };
+  }
 
-  const handlePrintShortlist = () => {
-    window.print();
-  };
+  if (!isSignedIn) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin mb-4" />
+        <p>Verifying your session...</p>
+      </div>
+    );
+  }
 
+  const paymentPlan = user?.publicMetadata?.paymentPlan as string | undefined;
+  if (!paymentPlan) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-xl">Access Denied</p>
+        <p>A valid payment plan is required to access this feature.</p>
+        <p>You will be redirected to the pricing page shortly.</p>
+      </div>
+    );
+  }
+
+  // --- If all checks pass, render the Search UI --- 
   return (
     <main className="flex-grow container mx-auto p-4 md:p-8 flex flex-col items-center space-y-6">
       <Card className="w-full max-w-2xl shadow-xl bg-card no-print-section">
@@ -253,10 +268,9 @@ export default function FinderPage() {
             <CardTitle className="text-3xl font-bold">RX Prescribers Search</CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Find prescribers by medication(s), location, and radius.
+            Find prescribers by medication(s), location, and radius. (Plan: {paymentPlan})
           </CardDescription>
         </CardHeader>
-
         <CardContent className="space-y-6">
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="space-y-2">
@@ -274,7 +288,6 @@ export default function FinderPage() {
                 className="text-base md:text-sm"
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
               <div className="space-y-2">
                 <Label htmlFor="zipcode" className="flex items-center text-sm font-medium">
@@ -333,9 +346,8 @@ export default function FinderPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-            <Button type="submit" disabled={isLoading} className="w-full text-lg py-6">
-              {isLoading ? (
+            <Button type="submit" disabled={isLoadingSearch} className="w-full text-lg py-6">
+              {isLoadingSearch ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
                 <Search className="mr-2 h-5 w-5" />
@@ -343,15 +355,13 @@ export default function FinderPage() {
               Search Prescribers
             </Button>
           </form>
-
-          {isLoading && (
+          {isLoadingSearch && (
             <div className="flex flex-col items-center justify-center py-8 space-y-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-lg text-muted-foreground">{currentLoadingPhrase}</p>
             </div>
           )}
-
-          {!isLoading && searchMessage && (
+          {!isLoadingSearch && searchMessage && (
              <div className={`p-4 rounded-md text-sm flex items-start ${
                 searchMessage.includes("No prescribers found") || searchMessage.startsWith("Flow Error:") || searchMessage.startsWith("Database query failed") || searchMessage.startsWith("Could not find location data for zipcode") || searchMessage.startsWith("An unexpected error occurred")
                 ? 'bg-destructive/10 text-destructive border border-destructive/20'
@@ -361,16 +371,13 @@ export default function FinderPage() {
               <p className="flex-grow">{searchMessage}</p>
             </div>
           )}
-
-          {!isLoading && displayedPrescribers.length === 0 && allPrescribers.length > 0 && !searchMessage?.includes("No prescribers found") && !searchMessage?.startsWith("Flow Error:") && (
+          {!isLoadingSearch && displayedPrescribers.length === 0 && allPrescribers.length > 0 && !searchMessage?.includes("No prescribers found") && !searchMessage?.startsWith("Flow Error:") && (
              <div className="p-4 rounded-md text-sm flex items-start bg-blue-50 text-blue-700 border border-blue-200">
                 <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
                 <p className="flex-grow">No prescribers match your current filter criteria. Try adjusting the confidence filter.</p>
             </div>
           )}
-
-
-          {displayedPrescribers.length > 0 && !isLoading && (
+          {displayedPrescribers.length > 0 && !isLoadingSearch && (
             <ScrollArea className="h-[400px] w-full rounded-md border p-1 bg-muted/20 shadow-inner animate-in fade-in-50 duration-700 no-print-section">
               <div className="space-y-3 p-3">
                 {displayedPrescribers.map((prescriber) => (
@@ -437,7 +444,7 @@ export default function FinderPage() {
         </CardFooter>
       </Card>
 
-      {shortlist.length > 0 && !isLoading && (
+      {shortlist.length > 0 && !isLoadingSearch && (
         <Card className="w-full max-w-2xl shadow-xl bg-card printable-shortlist-area mt-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center">
@@ -499,6 +506,33 @@ export default function FinderPage() {
           </CardContent>
         </Card>
       )}
+       <style jsx global>{`
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .no-print-section {
+            display: none !important;
+          }
+          .no-print-button {
+            display: none !important;
+          }
+          .printable-shortlist-area {
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .shortlist-item-print {
+             page-break-inside: avoid;
+             border: 1px solid #e2e8f0; /* light gray border for separation */
+             box-shadow: none !important;
+          }
+          .shortlist-notes-print {
+             border: 1px solid #cbd5e1 !important; /* slightly darker border for notes */
+             background-color: #f8fafc !important; /* very light background for notes */
+          }
+        }
+      `}</style>
     </main>
   );
 }
