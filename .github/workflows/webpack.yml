@@ -1,0 +1,28 @@
+name: NodeJS with Webpack
+
+on:
+  push:
+    branches: [ "working-pgsql" ]
+  pull_request:
+    branches: [ "working-pgsql" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.19.1]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Build
+      run: |
+        npm install
+        npx webpack
