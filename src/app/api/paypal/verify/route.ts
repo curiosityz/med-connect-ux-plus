@@ -4,7 +4,7 @@ import checkoutNodeJssdk from '@paypal/checkout-server-sdk';
 import { upsertUserPayment } from '@/services/databaseService';
 
 // Configure PayPal environment
-const environment = new checkoutNodeJssdk.core.LiveEnvironment(
+const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
   process.env.PAYPAL_CLIENT_ID!,
   process.env.PAYPAL_SECRET!
 );

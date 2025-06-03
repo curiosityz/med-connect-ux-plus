@@ -18,12 +18,12 @@ try {
     // or handle it explicitly, though POST handler should catch it.
   }
 
-  const environment = new checkoutNodeJssdk.core.LiveEnvironment(
+  const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
     process.env.PAYPAL_CLIENT_ID!,
     process.env.PAYPAL_SECRET!
   );
   client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
-  console.log("CREATE_ORDER_ROUTE: PayPal client initialized successfully");
+  console.log("CREATE_ORDER_ROUTE: PayPal client initialized successfully for Sandbox Environment");
 } catch (envError) {
   console.error("CREATE_ORDER_ROUTE: Error initializing PayPal environment:", envError);
   // If client initialization fails, we cannot proceed.

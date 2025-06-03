@@ -4,7 +4,7 @@ import checkoutNodeJssdk from '@paypal/checkout-server-sdk';
 import { clerkClient as _clerkClient } from '@clerk/nextjs/server';
 
 // Configure PayPal environment
-const environment = new checkoutNodeJssdk.core.LiveEnvironment(
+const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
   process.env.PAYPAL_CLIENT_ID!, // Corrected: Use non-public env var for server-side
   process.env.PAYPAL_SECRET!
 );
