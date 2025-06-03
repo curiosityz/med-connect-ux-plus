@@ -70,10 +70,10 @@ export default function PricingContent() {
     // For more advanced options, refer to PayPal JS SDK documentation
   };
 
-  const handleApprove = async (data: any, actions: any, plan: string) => {
+  const handleApprove = async (data: any, actions: any, plan: string, amount: string) => {
     try {
       setIsProcessing(true);
-      console.log('Payment approved by PayPal. Data:', data);
+      console.log('Payment approved by PayPal. Data:', data, 'Plan:', plan, 'Amount:', amount);
       const details = await actions.order.capture();
       console.log('Payment captured. Details:', details);
 
@@ -85,6 +85,7 @@ export default function PricingContent() {
         body: JSON.stringify({
           orderID: details.id,
           planType: plan,
+          amount: amount,
         }),
       });
       const result = await response.json();
@@ -145,7 +146,7 @@ export default function PricingContent() {
                 <PayPalButtons
                   style={{ layout: "vertical", color: "blue", shape: "rect", label: "pay" }}
                   createOrder={createOrder("19.95", "Basic Plan", "Basic")}
-                  onApprove={(data, actions) => handleApprove(data, actions, "Basic")}
+                  onApprove={(data, actions) => handleApprove(data, actions, "Basic", "19.95")}
                   onError={handleError}
                   disabled={isProcessing}
                 />
@@ -186,7 +187,7 @@ export default function PricingContent() {
                 <PayPalButtons
                   style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
                   createOrder={createOrder("49.99", "Complete Access Plan", "Complete Access")}
-                  onApprove={(data, actions) => handleApprove(data, actions, "Complete Access")}
+                  onApprove={(data, actions) => handleApprove(data, actions, "Complete Access", "49.99")}
                   onError={handleError}
                   disabled={isProcessing}
                 />
