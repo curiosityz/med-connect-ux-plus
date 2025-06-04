@@ -1,6 +1,8 @@
 'use server';
 
 import { Client, type QueryResultRow } from 'pg';
+import fs from 'fs';
+import path from 'path';
 
 const dbConfig = {
   host: process.env.PG_HOST,
@@ -9,12 +11,12 @@ const dbConfig = {
   password: process.env.NEXT_DB_PASSWORD,
   port: process.env.PG_PORT ? parseInt(process.env.PG_PORT, 10) : 5432,
   ssl: process.env.PG_SSLMODE === 'require'
-    ? { rejectUnauthorized: false }
+    ? {
+        rejectUnauthorized: true, // Enforce certificate validation
+        ca: process.env.PG_SSL_CA_PATH ? fs.readFileSync(path.resolve(process.env.PG_SSL_CA_PATH)).toString() : undefined,
+      }
     : undefined,
 };
-
-// TEMPORARY LOGGING:
-console.log("DATABASE_SERVICE_CONFIG:", JSON.stringify(dbConfig, null, 2));
 
 export interface PrescriberRecord extends QueryResultRow {
   npi: bigint; // NPI is crucial for unique identification
@@ -259,8 +261,6 @@ export async function upsertUserPayment(paymentData: {
   amount?: number; // Optional: if not provided, will be NULL in DB or skipped if column disallows NULL without default
   currency?: string; // Optional: defaults to 'USD' or as per DB default
 }): Promise<void> {
-  // TEMPORARY LOGGING:
-  console.log("UPSERT_USER_PAYMENT_DB_CONFIG:", JSON.stringify(dbConfig, null, 2));
   const { user_id, plan, status, payment_id, amount, currency = 'USD' } = paymentData;
   const client = new Client(dbConfig);
   try {
