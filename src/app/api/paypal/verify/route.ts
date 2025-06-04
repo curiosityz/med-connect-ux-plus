@@ -2,6 +2,9 @@ import { NextResponse, NextRequest } from 'next/server';
 import { getAuth } from '@clerk/nextjs/server';
 import checkoutNodeJssdk from '@paypal/checkout-server-sdk';
 import { upsertUserPayment } from '@/services/databaseService';
+import { clerkClient } from '@clerk/nextjs/server';
+
+console.log("\n\n🔥🔥🔥 PAYPAL VERIFY API ROUTE LOADED 🔥🔥🔥\n\n", new Date().toISOString());
 
 // Configure PayPal environment
 const environment = new checkoutNodeJssdk.core.SandboxEnvironment(

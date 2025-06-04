@@ -13,6 +13,9 @@ const dbConfig = {
     : undefined,
 };
 
+// TEMPORARY LOGGING:
+console.log("DATABASE_SERVICE_CONFIG:", JSON.stringify(dbConfig, null, 2));
+
 export interface PrescriberRecord extends QueryResultRow {
   npi: bigint; // NPI is crucial for unique identification
   provider_first_name: string | null;
@@ -256,6 +259,8 @@ export async function upsertUserPayment(paymentData: {
   amount?: number; // Optional: if not provided, will be NULL in DB or skipped if column disallows NULL without default
   currency?: string; // Optional: defaults to 'USD' or as per DB default
 }): Promise<void> {
+  // TEMPORARY LOGGING:
+  console.log("UPSERT_USER_PAYMENT_DB_CONFIG:", JSON.stringify(dbConfig, null, 2));
   const { user_id, plan, status, payment_id, amount, currency = 'USD' } = paymentData;
   const client = new Client(dbConfig);
   try {
