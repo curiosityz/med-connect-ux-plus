@@ -22,6 +22,22 @@ const dbConfig = {
     : undefined,
 };
 
+// --- BEGIN DIAGNOSTIC LOGGING ---
+if (dbConfig.ssl) {
+  console.log("DatabaseService: PG_SSLMODE=", process.env.PG_SSLMODE);
+  console.log("DatabaseService: SSL config applied:", JSON.stringify({
+    rejectUnauthorized: dbConfig.ssl.rejectUnauthorized,
+    ca_content_present: !!process.env.PG_SSL_CA_CONTENT,
+    ca_path_present: !!process.env.PG_SSL_CA_PATH,
+    ca_loaded_length: dbConfig.ssl.ca ? dbConfig.ssl.ca.length : 0,
+    ca_loaded_start: dbConfig.ssl.ca ? dbConfig.ssl.ca.substring(0, 30) : 'N/A',
+    ca_loaded_end: dbConfig.ssl.ca ? dbConfig.ssl.ca.substring(dbConfig.ssl.ca.length - 30) : 'N/A'
+  }));
+} else {
+  console.log("DatabaseService: SSL not configured (PG_SSLMODE is not 'require')");
+}
+// --- END DIAGNOSTIC LOGGING ---
+
 export interface PrescriberRecord extends QueryResultRow {
   npi: bigint; // NPI is crucial for unique identification
   provider_first_name: string | null;
