@@ -13,7 +13,11 @@ const dbConfig = {
   ssl: process.env.PG_SSLMODE === 'require'
     ? {
         rejectUnauthorized: true, // Enforce certificate validation
-        ca: process.env.PG_SSL_CA_PATH ? fs.readFileSync(path.resolve(process.env.PG_SSL_CA_PATH)).toString() : undefined,
+        ca: process.env.PG_SSL_CA_CONTENT
+          ? process.env.PG_SSL_CA_CONTENT.replace(/\\n/g, '\n') // Use content if available
+          : (process.env.PG_SSL_CA_PATH
+              ? fs.readFileSync(path.resolve(process.env.PG_SSL_CA_PATH)).toString() // Fallback to path
+              : undefined),
       }
     : undefined,
 };
