@@ -190,10 +190,20 @@ export default function FinderPage() {
       });
       setSearchMessage(response.message || null);
       if (response.results && response.results.length > 0) {
-        // Map each result to include the required 'npi' property
+        // Correctly map the NPI from the results. It's a bigint, so convert to string.
         const mappedResults = response.results.map(result => ({
           ...result,
-          npi: 'unknown' // Ensure 'npi' is present, defaulting to 'unknown' if missing
+          npi: String(result.npi), // Use the actual NPI from the result
+          // Map other potentially missing fields from the action output to your component's state type if needed
+          prescriberName: `${result.provider_first_name || ''} ${result.provider_last_name_legal_name || ''}`.trim(),
+          credentials: result.provider_credential_text || undefined,
+          specialization: result.healthcare_provider_taxonomy_1_specialization || undefined,
+          taxonomyClass: result.taxonomy_class || undefined,
+          address: `${result.practice_address1 || ''}${result.practice_address2 ? `, ${result.practice_address2}` : ''}, ${result.practice_city || ''}, ${result.practice_state || ''}`.trim(),
+          zipcode: result.practice_zip || '',
+          phoneNumber: formatPhoneNumber(result.provider_business_practice_location_address_telephone_number),
+          confidenceScore: result.total_claims_for_matched_meds || 0, // Example mapping for confidence
+          distance: result.distance_miles || undefined,
         }));
         setAllPrescribers(mappedResults);
       } else {
