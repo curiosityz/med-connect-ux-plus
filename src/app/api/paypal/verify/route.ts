@@ -5,14 +5,48 @@ import { upsertUserPayment } from '@/services/databaseService';
 import { clerkClient } from '@clerk/nextjs/server';
 
 // Configure PayPal environment
-const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
-  process.env.PAYPAL_CLIENT_ID!,
-  process.env.PAYPAL_SECRET!
-);
-const client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
+let client: checkoutNodeJssdk.core.PayPalHttpClient;
+try {
+  console.log("VERIFY_PAYMENT_ROUTE: Attempting to initialize PayPal environment");
+  console.log("VERIFY_PAYMENT_ROUTE: PAYPAL_CLIENT_ID available:", !!process.env.PAYPAL_CLIENT_ID);
+  console.log("VERIFY_PAYMENT_ROUTE: PAYPAL_SECRET available:", !!process.env.PAYPAL_SECRET);
+  console.log("VERIFY_PAYMENT_ROUTE: PAYPAL_MODE:", process.env.PAYPAL_MODE);
+
+  if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
+    console.error("VERIFY_PAYMENT_ROUTE: PayPal client ID or secret is missing!");
+  }
+
+  let environment;
+  if (process.env.PAYPAL_MODE?.toLowerCase() === 'live') {
+    environment = new checkoutNodeJssdk.core.LiveEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("VERIFY_PAYMENT_ROUTE: PayPal client configured for LIVE Environment");
+  } else {
+    environment = new checkoutNodeJssdk.core.SandboxEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("VERIFY_PAYMENT_ROUTE: PayPal client configured for SANDBOX Environment (default)");
+  }
+  client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
+  console.log("VERIFY_PAYMENT_ROUTE: PayPal client initialized successfully.");
+} catch (envError) {
+  console.error("VERIFY_PAYMENT_ROUTE: Error initializing PayPal environment:", envError);
+  // Client will be undefined, POST handler should check and return an error.
+}
 
 export async function POST(req: NextRequest) {
   console.log('VERIFY_PAYMENT_ROUTE: POST handler invoked');
+  if (!client) {
+    console.error("VERIFY_PAYMENT_ROUTE: PayPal client is not initialized. Cannot process verification.");
+    return NextResponse.json(
+      { error: 'PayPal client initialization failed. Check server logs.' },
+      { status: 500 }
+    );
+  }
+
   const authResult = await getAuth(req);
   if (!authResult || !authResult.userId) {
     console.log('VERIFY_PAYMENT_ROUTE: User not authenticated');

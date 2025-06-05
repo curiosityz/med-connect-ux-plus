@@ -11,6 +11,7 @@ try {
   console.log("CREATE_ORDER_ROUTE: PAYPAL_CLIENT_ID available:", !!process.env.PAYPAL_CLIENT_ID);
   // Mask the secret for logging, just check its presence
   console.log("CREATE_ORDER_ROUTE: PAYPAL_SECRET available:", !!process.env.PAYPAL_SECRET);
+  console.log("CREATE_ORDER_ROUTE: PAYPAL_MODE:", process.env.PAYPAL_MODE);
 
   if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
     console.error("CREATE_ORDER_ROUTE: PayPal client ID or secret is missing!");
@@ -18,12 +19,22 @@ try {
     // or handle it explicitly, though POST handler should catch it.
   }
 
-  const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
-    process.env.PAYPAL_CLIENT_ID!,
-    process.env.PAYPAL_SECRET!
-  );
+  let environment;
+  if (process.env.PAYPAL_MODE?.toLowerCase() === 'live') {
+    environment = new checkoutNodeJssdk.core.LiveEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("CREATE_ORDER_ROUTE: PayPal client configured for LIVE Environment");
+  } else {
+    environment = new checkoutNodeJssdk.core.SandboxEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("CREATE_ORDER_ROUTE: PayPal client configured for SANDBOX Environment (default)");
+  }
   client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
-  console.log("CREATE_ORDER_ROUTE: PayPal client initialized successfully for Sandbox Environment");
+  console.log("CREATE_ORDER_ROUTE: PayPal client initialized successfully.");
 } catch (envError) {
   console.error("CREATE_ORDER_ROUTE: Error initializing PayPal environment:", envError);
   // If client initialization fails, we cannot proceed.

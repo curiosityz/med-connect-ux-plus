@@ -1,31 +1,44 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 
-// Define routes that should be publicly accessible.
-// Clerk will automatically make sub-paths of these public as well (e.g., /sign-in/xyz).
-const publicRoutes = [
-  '/', // Landing page
-  '/pricing', // Pricing page
-  '/terms', // Terms page
-  '/privacy', // Privacy page
-  '/sign-in(.*)', // Sign-in and its sub-routes
-  '/sign-up(.*)', // Sign-up and its sub-routes
-  '/api/paypal/webhook', // PayPal webhook endpoint (needs to be accessible by PayPal)
-  // If you have other public pages add them here.
-];
-
-const isPublic = createRouteMatcher(publicRoutes);
+// Define routes that are explicitly public
+const isPublicRoute = createRouteMatcher([
+  '/',                // Landing page
+  '/pricing',         // Pricing page
+  '/terms',           // Terms page
+  '/privacy',         // Privacy page
+  '/sign-in(.*)',     // Sign-in and its sub-routes
+  '/sign-up(.*)',     // Sign-up and its sub-routes
+  '/api/paypal/webhook' // PayPal webhook endpoint (must be public)
+  // Add any other specific public API routes or pages here
+]);
 
 export default clerkMiddleware((auth, req) => {
-  if (isPublic(req)) {
-    return NextResponse.next();
+  // If it's not a public route, protect it.
+  // auth.protect() will automatically handle unauthenticated users
+  // (e.g., redirect to sign-in or return a 401 for API routes).
+  if (!isPublicRoute(req)) {
+    auth.protect();
   }
-  return auth.protect().then(() => NextResponse.next());
+  // For public routes, or if auth.protect() doesn't redirect/throw,
+  // the request proceeds as normal. NextResponse.next() is implied.
 });
 
 export const config = {
-  // This matcher ensures the middleware runs on all relevant paths,
-  // excluding static files (_next/static, _next/image, favicon.ico)
-  // and API routes if they are handled differently or don't need Clerk auth.
-  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files from Next.js)
+     * - _next/image (image optimization files from Next.js)
+     * - assets/ (your static asset images, fonts, etc. if you have an /assets folder in /public)
+     * - favicon.ico (favicon file)
+     * - manifest.json (PWA manifest)
+     * - robots.txt (SEO)
+     * - sitemap.xml (SEO)
+     *
+     * This ensures that the middleware runs on all relevant pages and API routes
+     * that should be processed by Clerk.
+     */
+    '/((?!_next/static|_next/image|assets|favicon.ico|manifest.json|robots.txt|sitemap.xml).*)',
+    '/' // Explicitly match the root path
+  ],
 };

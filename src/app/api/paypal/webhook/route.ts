@@ -4,11 +4,36 @@ import checkoutNodeJssdk from '@paypal/checkout-server-sdk';
 import { clerkClient as _clerkClient } from '@clerk/nextjs/server';
 
 // Configure PayPal environment
-const environment = new checkoutNodeJssdk.core.SandboxEnvironment(
-  process.env.PAYPAL_CLIENT_ID!, // Corrected: Use non-public env var for server-side
-  process.env.PAYPAL_SECRET!
-);
-const client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
+let client: checkoutNodeJssdk.core.PayPalHttpClient;
+try {
+  console.log("WEBHOOK_ROUTE: Attempting to initialize PayPal environment");
+  console.log("WEBHOOK_ROUTE: PAYPAL_CLIENT_ID available:", !!process.env.PAYPAL_CLIENT_ID);
+  console.log("WEBHOOK_ROUTE: PAYPAL_SECRET available:", !!process.env.PAYPAL_SECRET);
+  console.log("WEBHOOK_ROUTE: PAYPAL_MODE:", process.env.PAYPAL_MODE);
+
+  if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
+    console.error("WEBHOOK_ROUTE: PayPal client ID or secret is missing!");
+  }
+
+  let environment;
+  if (process.env.PAYPAL_MODE?.toLowerCase() === 'live') {
+    environment = new checkoutNodeJssdk.core.LiveEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("WEBHOOK_ROUTE: PayPal client configured for LIVE Environment");
+  } else {
+    environment = new checkoutNodeJssdk.core.SandboxEnvironment(
+      process.env.PAYPAL_CLIENT_ID!,
+      process.env.PAYPAL_SECRET!
+    );
+    console.log("WEBHOOK_ROUTE: PayPal client configured for SANDBOX Environment (default)");
+  }
+  client = new checkoutNodeJssdk.core.PayPalHttpClient(environment);
+  console.log("WEBHOOK_ROUTE: PayPal client initialized successfully.");
+} catch (envError) {
+  console.error("WEBHOOK_ROUTE: Error initializing PayPal environment:", envError);
+}
 
 const getClerkClient = _clerkClient; // This is a function that returns a promise
 
@@ -176,7 +201,14 @@ async function verifyPayPalWebhookSignature(headers: Record<string, string>, raw
     };
     
     // Make a direct request to PayPal's API to verify the signature
-    const response = await fetch('https://api-m.paypal.com/v1/notifications/verify-webhook-signature', {
+    const verifyUrl = process.env.PAYPAL_MODE?.toLowerCase() === 'live'
+      ? 'https://api-m.paypal.com/v1/notifications/verify-webhook-signature'
+      : 'https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature';
+
+    console.log(`WEBHOOK_ROUTE/verifyPayPalWebhookSignature: Using verify URL: ${verifyUrl}`);
+    console.log(`WEBHOOK_ROUTE/verifyPayPalWebhookSignature: Using PAYPAL_WEBHOOK_ID: ${webhookId}`);
+
+    const response = await fetch(verifyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -210,8 +242,16 @@ async function verifyPayPalWebhookSignature(headers: Record<string, string>, raw
 async function getAccessToken(): Promise<string> {
   const clientId = process.env.PAYPAL_CLIENT_ID!;
   const clientSecret = process.env.PAYPAL_SECRET!;
-  
-  const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+  console.log(`WEBHOOK_ROUTE/getAccessToken: Using PAYPAL_MODE: ${process.env.PAYPAL_MODE}`);
+  console.log(`WEBHOOK_ROUTE/getAccessToken: PAYPAL_CLIENT_ID available: ${!!clientId}`);
+
+  const authUrl = process.env.PAYPAL_MODE?.toLowerCase() === 'live' 
+    ? 'https://api-m.paypal.com/v1/oauth2/token' 
+    : 'https://api-m.sandbox.paypal.com/v1/oauth2/token';
+
+  console.log(`WEBHOOK_ROUTE/getAccessToken: Using auth URL: ${authUrl}`);
+
+  const response = await fetch(authUrl, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
