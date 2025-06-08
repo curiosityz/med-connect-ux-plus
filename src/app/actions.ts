@@ -13,16 +13,21 @@ export interface ClientPrescriberSearchInput {
 // This interface matches the Genkit flow's actual output structure
 export interface PrescriberSearchActionOutput {
   results: {
-    prescriberName: string;
-    credentials?: string;
-    specialization?: string;
-    taxonomyClass?: string;
-    address: string;
-    zipcode: string;
-    phoneNumber?: string;
+    npi: string | bigint; // NPI can be string or bigint from the database
+    provider_first_name?: string;
+    provider_last_name_legal_name?: string;
+    provider_credential_text?: string;
+    healthcare_provider_taxonomy_1_specialization?: string;
+    taxonomy_class?: string;
+    practice_address1?: string;
+    practice_address2?: string;
+    practice_city?: string;
+    practice_state?: string;
+    practice_zip?: string;
+    provider_business_practice_location_address_telephone_number?: string;
     matchedMedications: string[];
-    confidenceScore: number;
-    distance?: number;
+    total_claims_for_matched_meds?: number; // Used for confidenceScore
+    distance_miles?: number; // Used for distance
   }[];
   message?: string;
 }
