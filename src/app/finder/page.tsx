@@ -188,23 +188,13 @@ export default function FinderPage() {
         zipcode,
         searchRadius: Number(searchRadius)
       });
-      console.log("Calling findPrescribersAction with input:", { medicationName: medicationNamesInput, zipcode, searchRadius: Number(searchRadius) }); // Added console log
+      console.log("Calling findPrescribersAction with input:", { medicationName: medicationNamesInput, zipcode, searchRadius: Number(searchRadius) });
+      console.log("Response from findPrescribersAction:", response);
+      
       setSearchMessage(response.message || null);
       if (response.results && response.results.length > 0) {
-        const mappedResults = response.results.map(result => ({
-          npi: String(result.npi),
-          prescriberName: `${result.provider_first_name || ''} ${result.provider_last_name_legal_name || ''}`.trim(),
-          credentials: result.provider_credential_text || undefined,
-          specialization: result.healthcare_provider_taxonomy_1_specialization || undefined,
-          taxonomyClass: result.taxonomy_class || undefined,
-          address: `${result.practice_address1 || ''}${result.practice_address2 ? `, ${result.practice_address2}` : ''}, ${result.practice_city || ''}, ${result.practice_state || ''}`.trim(),
-          zipcode: result.practice_zip || '',
-          phoneNumber: formatPhoneNumber(result.provider_business_practice_location_address_telephone_number ?? undefined),
-          matchedMedications: result.matchedMedications || [],
-          confidenceScore: result.total_claims_for_matched_meds || 0,
-          distance: result.distance_miles != null ? parseFloat(result.distance_miles.toFixed(1)) : undefined,
-        }));
-        setAllPrescribers(mappedResults);
+        // The response now directly matches our PrescriberResult interface
+        setAllPrescribers(response.results);
       } else {
         setAllPrescribers([]);
         setDisplayedPrescribers([]);

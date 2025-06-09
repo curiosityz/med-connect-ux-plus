@@ -1,4 +1,3 @@
-
 "use server";
 
 import { findPrescribers, type PrescriberSearchInput as FlowInputType } from '@/ai/flows/prescriber-search-flow'; // Renamed to FlowInputType to avoid conflict
@@ -13,21 +12,17 @@ export interface ClientPrescriberSearchInput {
 // This interface matches the Genkit flow's actual output structure
 export interface PrescriberSearchActionOutput {
   results: {
-    npi: string | bigint;
-    provider_first_name?: string | null;
-    provider_last_name_legal_name?: string | null;
-    provider_credential_text?: string | null;
-    healthcare_provider_taxonomy_1_specialization?: string | null;
-    taxonomy_class?: string | null;
-    practice_address1?: string | null;
-    practice_address2?: string | null;
-    practice_city?: string | null;
-    practice_state?: string | null;
-    practice_zip?: string | null;
-    provider_business_practice_location_address_telephone_number?: string | null;
+    npi: string;
+    prescriberName: string;
+    credentials?: string;
+    specialization?: string;
+    taxonomyClass?: string;
+    address: string;
+    zipcode: string;
+    phoneNumber?: string;
     matchedMedications: string[];
-    total_claims_for_matched_meds?: number | null;
-    distance_miles?: number | null;
+    confidenceScore: number;
+    distance?: number;
   }[];
   message?: string;
 }
