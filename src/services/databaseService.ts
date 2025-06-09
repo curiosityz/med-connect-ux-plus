@@ -236,6 +236,7 @@ export async function findPrescribersInDB({ medicationNames, zipcode, searchRadi
     ];
 
     const res = await client.query<PrescriberRecord>(query, params);
+    console.log("Database query returned:", res.rows.length, "rows."); // Added log
     return res.rows;
 
   } catch (error: any) {

@@ -35,8 +35,24 @@ const PrescriberSchema = z.object({
 });
 
 const PrescriberSearchOutputSchema = z.object({
-    results: z.array(PrescriberSchema),
-    message: z.string().optional(),
+  results: z.array(z.object({
+    npi: z.union([z.string(), z.bigint()]), // NPI can be string or bigint from the database
+    provider_first_name: z.string().optional().nullable(),
+    provider_last_name_legal_name: z.string().optional().nullable(),
+    provider_credential_text: z.string().optional().nullable(),
+    healthcare_provider_taxonomy_1_specialization: z.string().optional().nullable(),
+    taxonomy_class: z.string().optional().nullable(),
+    practice_address1: z.string().optional().nullable(),
+    practice_address2: z.string().optional().nullable(),
+    practice_city: z.string().optional().nullable(),
+    practice_state: z.string().optional().nullable(),
+    practice_zip: z.string().optional().nullable(),
+    provider_business_practice_location_address_telephone_number: z.string().optional().nullable(),
+    matchedMedications: z.array(z.string()), // Reverted to matchedMedications
+    total_claims_for_matched_meds: z.number().optional().nullable(),
+    distance_miles: z.number().optional().nullable(),
+  })),
+  message: z.string().optional(),
 });
 export type PrescriberSearchOutput = z.infer<typeof PrescriberSearchOutputSchema>;
 

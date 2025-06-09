@@ -13,21 +13,21 @@ export interface ClientPrescriberSearchInput {
 // This interface matches the Genkit flow's actual output structure
 export interface PrescriberSearchActionOutput {
   results: {
-    npi: string | bigint; // NPI can be string or bigint from the database
-    provider_first_name?: string;
-    provider_last_name_legal_name?: string;
-    provider_credential_text?: string;
-    healthcare_provider_taxonomy_1_specialization?: string;
-    taxonomy_class?: string;
-    practice_address1?: string;
-    practice_address2?: string;
-    practice_city?: string;
-    practice_state?: string;
-    practice_zip?: string;
-    provider_business_practice_location_address_telephone_number?: string;
+    npi: string | bigint;
+    provider_first_name?: string | null;
+    provider_last_name_legal_name?: string | null;
+    provider_credential_text?: string | null;
+    healthcare_provider_taxonomy_1_specialization?: string | null;
+    taxonomy_class?: string | null;
+    practice_address1?: string | null;
+    practice_address2?: string | null;
+    practice_city?: string | null;
+    practice_state?: string | null;
+    practice_zip?: string | null;
+    provider_business_practice_location_address_telephone_number?: string | null;
     matchedMedications: string[];
-    total_claims_for_matched_meds?: number; // Used for confidenceScore
-    distance_miles?: number; // Used for distance
+    total_claims_for_matched_meds?: number | null;
+    distance_miles?: number | null;
   }[];
   message?: string;
 }
@@ -59,6 +59,7 @@ export async function findPrescribersAction(input: ClientPrescriberSearchInput):
     // that matches { results: PrescriberResult[], message?: string }
     // which is compatible with PrescriberSearchActionOutput
     const result = await findPrescribers(flowInput);
+    console.log("Response from findPrescribers flow:", result); // Log the full result
     return result;
   } catch (error: any) {
     console.error("Error in findPrescribersAction:", error);
