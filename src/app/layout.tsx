@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { BriefcaseMedical, LogIn, UserPlus, SearchCode, DollarSign } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
-import Image from 'next/image';
 
 
 const geistSans = Geist({
@@ -43,13 +42,7 @@ export default function RootLayout({
             <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="container flex h-16 items-center">
                 <Link href="/" className="mr-6 flex items-center space-x-2">
-                  <Image
-                    src="/graphics/Better-Logo.png"
-                    alt="RX Prescribers Logo"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8"
-                  />
+                  <BriefcaseMedical className="h-7 w-7 text-primary" />
                   <span className="font-bold text-xl sm:inline-block">
                     RX Prescribers
                   </span>

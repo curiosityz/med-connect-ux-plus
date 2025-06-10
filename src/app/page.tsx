@@ -12,13 +12,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-20 md:py-32 bg-gradient-to-br from-primary/10 via-background to-secondary/20">
         <div className="container mx-auto px-4 text-center">
-          <Image
-            src="/graphics/Better-Logo.png"
-            alt="RX Prescribers Logo"
-            width={64}
-            height={64}
-            className="h-16 w-16 mx-auto mb-6"
-          />
+          <BriefcaseMedical className="h-16 w-16 text-primary mx-auto mb-6" />
           <h1 className="text-4xl md:text-6xl font-bold mb-6 text-foreground">
             RX Prescribers: Find Care, <span className="text-primary">Effortlessly</span>.
           </h1>
