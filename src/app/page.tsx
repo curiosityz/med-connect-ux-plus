@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { BriefcaseMedical, MapPinned, ShieldCheck, Zap, Target, Lightbulb, UserCheck, Search, FileText, Users, TrendingUp, Clock, CheckCircle, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -50,23 +51,31 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-primary text-primary-foreground">
+      <section className="py-16 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div className="space-y-2">
-              <div className="text-3xl md:text-4xl font-bold">10K+</div>
+            <div className="space-y-2 group">
+              <div className="text-3xl md:text-4xl font-bold group-hover:scale-110 transition-transform duration-300">
+                <AnimatedCounter end={10000} suffix="+" />
+              </div>
               <div className="text-primary-foreground/80">Prescribers Found</div>
             </div>
-            <div className="space-y-2">
-              <div className="text-3xl md:text-4xl font-bold">50K+</div>
+            <div className="space-y-2 group">
+              <div className="text-3xl md:text-4xl font-bold group-hover:scale-110 transition-transform duration-300">
+                <AnimatedCounter end={50000} suffix="+" />
+              </div>
               <div className="text-primary-foreground/80">Searches Completed</div>
             </div>
-            <div className="space-y-2">
-              <div className="text-3xl md:text-4xl font-bold">99.9%</div>
+            <div className="space-y-2 group">
+              <div className="text-3xl md:text-4xl font-bold group-hover:scale-110 transition-transform duration-300">
+                <AnimatedCounter end={99.9} suffix="%" />
+              </div>
               <div className="text-primary-foreground/80">Uptime</div>
             </div>
-            <div className="space-y-2">
-              <div className="text-3xl md:text-4xl font-bold">&lt;2s</div>
+            <div className="space-y-2 group">
+              <div className="text-3xl md:text-4xl font-bold group-hover:scale-110 transition-transform duration-300">
+                <AnimatedCounter end={2} prefix="<" suffix="s" />
+              </div>
               <div className="text-primary-foreground/80">Average Response</div>
             </div>
           </div>
