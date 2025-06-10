@@ -88,12 +88,62 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster position="top-center" />
-            <footer className="py-8 border-t bg-secondary/50">
-              <div className="container text-center text-sm text-muted-foreground">
-                © {new Date().getFullYear()} RX Prescribers. All rights reserved.
-                <div className="mt-2 space-x-4">
-                  <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
-                  <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
+            <footer className="bg-background border-t">
+              <div className="container mx-auto px-4 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <BriefcaseMedical className="h-6 w-6 text-primary" />
+                      <span className="font-bold text-lg">RX Prescribers</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Connecting healthcare professionals with the right prescribers, efficiently and accurately.
+                    </p>
+                    <div className="flex space-x-4">
+                      <Button variant="ghost" size="sm">
+                        <span className="sr-only">Twitter</span>
+                        🐦
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <span className="sr-only">LinkedIn</span>
+                        💼
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <span className="sr-only">Facebook</span>
+                        📘
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-4">Product</h3>
+                    <div className="space-y-2 text-sm">
+                      <Link href="/finder" className="block text-muted-foreground hover:text-primary transition-colors">Prescriber Search</Link>
+                      <Link href="/pricing" className="block text-muted-foreground hover:text-primary transition-colors">Pricing Plans</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">API Access</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">Mobile App</Link>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-4">Support</h3>
+                    <div className="space-y-2 text-sm">
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">Help Center</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">Contact Us</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">System Status</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">Training</Link>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-4">Legal</h3>
+                    <div className="space-y-2 text-sm">
+                      <Link href="/privacy" className="block text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link>
+                      <Link href="/terms" className="block text-muted-foreground hover:text-primary transition-colors">Terms of Service</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">HIPAA Compliance</Link>
+                      <Link href="#" className="block text-muted-foreground hover:text-primary transition-colors">Data Security</Link>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
+                  <p>© {new Date().getFullYear()} RX Prescribers. All rights reserved. | Built with ❤️ for healthcare professionals.</p>
                 </div>
               </div>
             </footer>
