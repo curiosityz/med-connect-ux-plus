@@ -12,7 +12,13 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-20 md:py-32 bg-gradient-to-br from-primary/10 via-background to-secondary/20">
         <div className="container mx-auto px-4 text-center">
-          <BriefcaseMedical className="h-16 w-16 text-primary mx-auto mb-6" />
+          <Image
+            src="/graphics/Better-Logo.png"
+            alt="RX Prescribers Logo"
+            width={64}
+            height={64}
+            className="h-16 w-16 mx-auto mb-6"
+          />
           <h1 className="text-4xl md:text-6xl font-bold mb-6 text-foreground">
             RX Prescribers: Find Care, <span className="text-primary">Effortlessly</span>.
           </h1>
@@ -22,12 +28,11 @@ export default function LandingPage() {
           <HeroCtaButton />
           <div className="mt-16 md:mt-20">
             <Image
-              src="https://placehold.co/1200x600.png"
-              alt="RX Prescribers Application Screenshot"
+              src="/graphics/Screenshot_2025-06-09_11-25-27.png"
+              alt="RX Prescribers Application Main Interface"
               width={1200}
               height={600}
               className="rounded-xl shadow-2xl mx-auto border-2 border-primary/20"
-              data-ai-hint="healthcare app interface"
               priority
             />
           </div>
@@ -75,6 +80,48 @@ export default function LandingPage() {
                 Access prescriber names, addresses, and matched medications at a glance.
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Screenshots Gallery Section */}
+      <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">See RX Prescribers in Action</h2>
+          <p className="text-center text-muted-foreground mb-12 md:mb-16 max-w-2xl mx-auto">
+            Explore our intuitive interface designed to make finding healthcare providers simple and efficient.
+          </p>
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-semibold mb-3 text-foreground">Advanced Search Interface</h3>
+                <p className="text-muted-foreground mb-4">
+                  Our clean, user-friendly search interface makes it easy to input medication names, zip codes, and radius preferences for precise results.
+                </p>
+                <Image
+                  src="/graphics/Screenshot_2025-06-09_11-27-57.png"
+                  alt="RX Prescribers Search Interface"
+                  width={600}
+                  height={400}
+                  className="rounded-lg shadow-lg border border-primary/20"
+                />
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-semibold mb-3 text-foreground">Comprehensive Results</h3>
+                <p className="text-muted-foreground mb-4">
+                  View detailed prescriber information including names, addresses, and medication matches in an organized, easy-to-read format.
+                </p>
+                <Image
+                  src="/graphics/Screenshot_2025-06-09_11-29-18.png"
+                  alt="RX Prescribers Results View"
+                  width={600}
+                  height={400}
+                  className="rounded-lg shadow-lg border border-primary/20"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
